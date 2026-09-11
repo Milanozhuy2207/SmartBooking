@@ -12,6 +12,12 @@ exports.registerCustomer = async (req, res) => {
         const salt = await bcrypt.genSalt(10)
         const password_hash = await bcrypt.hash(password, salt)
 
+        const emailExists = await User.findOne({ email })
+
+        if (emailExists) {
+            return res.status(400).json({ message: "Email already exists" })
+        }
+
         const newUser = await User.create({
             email,
             phone_number,
@@ -39,7 +45,7 @@ exports.login = async (req, res) => {
         const user = await User.findOne({ email })
 
         if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-            res.status(401).json({ message: 'Invalid credential' })
+            return res.status(401).json({ message: 'Invalid credential' })
         }
 
         const token = jwt.sign({ userId: user._id, role: user.role }, JWT_SECRET, { expiresIn: '1h' })

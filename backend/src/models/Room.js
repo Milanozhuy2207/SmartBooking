@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const RoomSchema = new mongoose.Schema({
+    hotel_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Hotel', required: true },
     room_number: { type: String, required: true, unique: true },
     type: { type: String, enum: ['STANDARD', 'DELUXE', 'VIP'], default: 'STANDARD' },
     price_per_night: { type: Number, required: true },
