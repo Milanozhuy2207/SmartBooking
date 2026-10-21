@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
@@ -44,76 +44,75 @@ const LoginPage = () => {
 
     return (
         <div
-            className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat transition-all duration-1000"
+            className="min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat transition-all duration-1000 font-sans"
             style={{
                 backgroundImage: `url("${bgImage}")`,
             }}
         >
             <Toaster position="top-right" />
 
-            <div className="absolute inset-0 bg-cyan-900/30 backdrop-blur-sm"></div>
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-md"></div>
 
-            <div className="relative z-10 w-full max-w-md p-8 md:p-10 bg-white/80 backdrop-blur-md border border-white/50 rounded-3xl shadow-2xl">
+            <div className="relative z-10 w-full max-w-md p-10 bg-[#1a1a1a]/80 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl shadow-black/50">
 
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-600 to-blue-600 mb-2">
-                        SmartBooking
-                    </h1>
-                    <p className="text-cyan-800/80 font-medium">Nghỉ dưỡng trong tầm tay</p>
+                <div className="text-center mb-10 flex flex-col items-center">
+                    <span className="flex items-center gap-1 text-3xl font-serif tracking-widest text-white mb-1">
+                        <span className="text-[#C19D60] text-4xl font-black mr-1">S</span>MART<span className="font-light">BOOKING</span>
+                    </span>
+                    <span className="text-[9px] tracking-[0.5em] font-bold text-white/60">LUXURY HOTEL</span>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
-                        <label className="flex items-center gap-2 text-sm font-bold text-cyan-900 mb-2">
-                            <FiMail className="text-cyan-600" /> Địa chỉ Email
+                        <label className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-[#777] mb-2">
+                            <FiMail className="text-[#C19D60] text-sm" /> Email Address
                         </label>
                         <input
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-white/70 border border-cyan-100 focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all placeholder-gray-400 text-gray-700 shadow-inner"
+                            className="w-full bg-transparent border-b-2 border-white/20 text-white px-2 py-3 outline-none focus:border-[#C19D60] transition-colors placeholder-white/20 text-sm"
                             placeholder="namkh@vnpt.vn"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="flex items-center gap-2 text-sm font-bold text-cyan-900 mb-2">
-                            <FiLock className="text-cyan-600" /> Mật khẩu
+                        <label className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-[#777] mb-2">
+                            <FiLock className="text-[#C19D60] text-sm" /> Password
                         </label>
                         <input
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-white/70 border border-cyan-100 focus:bg-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all placeholder-gray-400 text-gray-700 shadow-inner"
+                            className="w-full bg-transparent border-b-2 border-white/20 text-white px-2 py-3 outline-none focus:border-[#C19D60] transition-colors placeholder-white/20 text-sm"
                             placeholder="••••••••"
                             required
                         />
                     </div>
 
-                    {/* Tiện ích bổ sung: Ghi nhớ & Quên mật khẩu */}
-                    <div className="flex items-center justify-between text-sm">
-                        <label className="flex items-center gap-2 cursor-pointer text-cyan-900">
-                            <input type="checkbox" className="w-4 h-4 text-cyan-600 rounded border-cyan-300 focus:ring-cyan-500" />
-                            <span className="font-medium">Ghi nhớ đăng nhập</span>
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-widest font-bold mt-4">
+                        <label className="flex items-center gap-2 cursor-pointer text-[#777]">
+                            <input type="checkbox" className="w-3 h-3 text-[#C19D60] rounded border-white/20 bg-transparent focus:ring-[#C19D60]" />
+                            <span>Remember Me</span>
                         </label>
-                        <a href="#" className="font-bold text-cyan-700 hover:text-cyan-500 transition-colors">
-                            Quên mật khẩu?
+                        <a href="#" className="text-[#C19D60] hover:text-white transition-colors">
+                            Forgot Password?
                         </a>
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full cursor-pointer mt-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] active:scale-95 shadow-xl shadow-cyan-500/30"
+                        className="w-full mt-10 py-4 rounded-xl text-xs font-bold text-white uppercase tracking-widest bg-[#C19D60] hover:bg-[#A8874E] transition-all duration-300 hover:shadow-lg hover:shadow-[#C19D60]/40 flex items-center justify-center gap-2"
                     >
-                        <FiLogIn className="text-lg" /> ĐẶT CHÂN ĐẾN RESORT
+                        <FiLogIn className="text-base" /> Sign In
                     </button>
 
-                    <p className="text-center text-sm text-cyan-900 mt-6">
-                        Chưa có tài khoản?{' '}
-                        <a href="/register" className="font-bold text-cyan-700 hover:text-cyan-500 hover:underline transition-all">
-                            Đăng ký ngay
-                        </a>
+                    <p className="text-center text-[10px] font-bold text-[#777] uppercase tracking-widest mt-8">
+                        New Guest?{' '}
+                        <Link to="/register" className="text-[#C19D60] hover:text-white transition-colors ml-1">
+                            Create Account
+                        </Link>
                     </p>
                 </form>
             </div>

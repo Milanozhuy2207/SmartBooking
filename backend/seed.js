@@ -30,13 +30,12 @@ mongoose.connect('mongodb://127.0.0.1:27017/smartbooking')
   .then(async () => {
     console.log('Connected to MongoDB. Clearing old data...');
     await Hotel.deleteMany({});
-    await Room.deleteMany({}); // Delete old rooms because they don't have hotel_id
+    await Room.deleteMany({});
 
     for (let data of hotelsData) {
       const hotel = await Hotel.create(data);
       console.log(`Created hotel: ${hotel.name}`);
-      
-      // Create 3 rooms for each hotel
+
       const rooms = [
         { hotel_id: hotel._id, room_number: `${hotel.name.charAt(0)}101`, type: 'STANDARD', price_per_night: 500000 },
         { hotel_id: hotel._id, room_number: `${hotel.name.charAt(0)}102`, type: 'DELUXE', price_per_night: 1200000 },

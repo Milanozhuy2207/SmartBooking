@@ -15,10 +15,11 @@ export interface Room {
 export interface Hotel {
     _id: string;
     name: string;
-    location: any[];
+    location: string;
     star_rating: number;
     image_url: string;
     description: string;
+    rooms?: Room[];
 }
 
 interface BookingStore {
@@ -27,9 +28,10 @@ interface BookingStore {
     locations: any[];
     isLoading: boolean;
     fetchHotels: (location?: string) => Promise<void>;
-    fetchRoomsByHotel: (hotelId: string) => Promise<void>;
+    fetchRoomsByHotel: (hotelId: string, checkIn?: string, checkOut?: string) => Promise<void>;
     fetchLocations: () => Promise<void>;
-    lockRoom: (roomId: string) => void;
+    lockRoom: (roomId: string, checkIn: string, checkOut: string) => Promise<boolean>;
+    confirmBookingDone: (roomId: string) => void;
     initSocketListeners: () => void;
 }
 
@@ -63,10 +65,10 @@ export const useBookingStore = create<BookingStore>((set) => ({
         }
     },
 
-    fetchRoomsByHotel: async (hotelId: string) => {
+    fetchRoomsByHotel: async (hotelId: string, checkIn?: string, checkOut?: string) => {
         set({ isLoading: true });
         try {
-            const res = await axiosClient.get(`/hotels/${hotelId}/rooms`);
+            const res = await axiosClient.get(`/hotels/${hotelId}/rooms`, { params: { check_in: checkIn, check_out: checkOut } });
             set({ rooms: res.data.data, isLoading: false });
         } catch (error) {
             console.error('Error fetching rooms:', error);
@@ -74,11 +76,17 @@ export const useBookingStore = create<BookingStore>((set) => ({
         }
     },
 
-    lockRoom: (roomId: string) => {
-        socket.emit('request_lock_room', roomId);
-        socket.once('lock_room_response', (res: { success: boolean, message?: string }) => {
-            if (!res.success) alert('Fail to lock room: ' + res.message);
+    lockRoom: (roomId: string, checkIn: string, checkOut: string) => {
+        return new Promise<boolean>((resolve) => {
+            socket.emit('request_lock_room', { roomId, checkIn, checkOut });
+            socket.once('lock_room_response', (res: { success: boolean, message?: string }) => {
+                resolve(!!res.success);
+            });
         });
+    },
+
+    confirmBookingDone: (roomId: string) => {
+        socket.emit('booking_done', { roomId });
     },
 
     initSocketListeners: () => {

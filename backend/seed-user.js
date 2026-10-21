@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const User = require('./src/models/User');
-const Room = require('./src/models/Room'); // Thiếu dòng này nè fen
+const Room = require('./src/models/Room');
 
 mongoose.connect('mongodb://127.0.0.1:27017/smartbooking')
     .then(async () => {
