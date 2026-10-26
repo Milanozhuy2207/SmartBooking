@@ -30,10 +30,20 @@ const LoginPage = () => {
 
         try {
             const res = await axiosClient.post('/auth/login', { email, password });
+
+
             if (res.status === 200) {
+
+                localStorage.setItem('user', JSON.stringify(res.data.user))
+
                 toast.success('Đăng nhập thành công!', { id: loadingToast });
                 setTimeout(() => {
-                    navigate('/home');
+                    if (res.data.user.role === 'ADMIN') {
+                        navigate('/admin')
+                    }
+                    else {
+                        navigate('/home')
+                    }
                 }, 1000);
             }
         } catch (error: any) {

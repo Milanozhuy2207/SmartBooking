@@ -87,7 +87,7 @@ const AdminDashboard = () => {
                         <button onClick={fetchAllBookings} className="text-[#777] hover:text-[#C19D60] transition-colors" title="Refresh">
                             <FiRefreshCcw className="text-xl" />
                         </button>
-                        <button onClick={() => navigate('/login')} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors text-xs font-bold uppercase tracking-widest">
+                        <button onClick={() => { localStorage.removeItem('user'); navigate('/login'); }} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors text-xs font-bold uppercase tracking-widest">
                             <FiLogOut className="text-lg" /> Logout
                         </button>
                     </div>

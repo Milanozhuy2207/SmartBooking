@@ -6,6 +6,16 @@ import MyBookingsPage from './pages/MyBookingsPage';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminHotelPage from './pages/AdminHotelPage';
 
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+    const userStr = localStorage.getItem('user')
+    const user = userStr ? JSON.parse(userStr) : null
+
+    if (!user || user.role !== "ADMIN") {
+        return <Navigate to="/home" replace />
+    }
+    return <>{children}</>
+}
+
 function App() {
     return (
         <BrowserRouter>
@@ -15,8 +25,8 @@ function App() {
                 <Route path="/home" element={<HomePage />} />
                 <Route path="/register" element={<RegisterPage />} />
                 <Route path="/my-bookings" element={<MyBookingsPage />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                <Route path="/admin/hotels" element={<AdminHotelPage />} />
+                <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/hotels" element={<AdminRoute><AdminHotelPage /></AdminRoute>} />
             </Routes>
         </BrowserRouter>
     );

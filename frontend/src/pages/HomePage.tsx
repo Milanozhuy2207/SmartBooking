@@ -51,6 +51,7 @@ const HomePage = () => {
     }, [isDarkMode]);
 
     const handleLogout = async () => {
+        localStorage.removeItem('user');
         toast.success('Đã đăng xuất!');
         navigate('/login');
     };
@@ -416,48 +417,167 @@ const HomePage = () => {
                 )}
             </main>
 
-            {/* CHECKOUT MODAL */}
-            {showCheckoutModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md z-[110] flex items-center justify-center p-4 transition-opacity">
-                    <div className="bg-white/95 dark:bg-[#1a1a1a]/95 backdrop-blur-xl w-full max-w-md shadow-2xl shadow-black/40 rounded-2xl relative border border-white/20">
-                        <div className="p-8 border-b border-[#EAE3D2] dark:border-white/10 flex justify-between items-center">
-                            <h3 className="text-2xl font-serif text-[#222] dark:text-gray-100">Confirm Booking</h3>
-                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-[#222] flex items-center justify-center cursor-pointer hover:bg-[#C19D60] hover:text-white transition-colors group" onClick={() => setShowCheckoutModal(false)}>
-                                <FiCheck className="text-lg text-[#222] dark:text-gray-100 group-hover:text-white rotate-45 transition-colors" />
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="mb-8 pb-6 border-b border-[#EAE3D2] dark:border-white/10 text-center bg-gray-50/50 dark:bg-white/5 rounded-xl p-4">
-                                <p className="text-[#777] text-[10px] uppercase tracking-widest font-bold mb-1">Room Details</p>
-                                <p className="text-xl font-serif text-[#222] dark:text-gray-100">Room {selectedRoom?.room_number} <span className="text-[#C19D60] font-sans text-sm">({selectedRoom?.type})</span></p>
-                                <p className="text-[#C19D60] font-bold mt-2 text-lg">{selectedRoom?.price_per_night.toLocaleString('vi-VN')}đ <span className="text-sm font-light text-[#777]">/ night</span></p>
-                            </div>
-                            <div className="space-y-5">
-                                <div>
-                                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#777] mb-2">Your Name</label>
-                                    <input
-                                        type="text"
-                                        value={customerName}
-                                        onChange={(e) => setCustomerName(e.target.value)}
-                                        className="w-full bg-transparent border-b-2 border-[#EAE3D2] dark:border-white/20 text-[#222] dark:text-white px-2 py-3 outline-none focus:border-[#C19D60] transition-colors"
-                                        placeholder="John Doe"
+            {/* MODERN OTA CHECKOUT MODAL */}
+            {showCheckoutModal && selectedRoom && (
+                <div className="fixed inset-0 bg-black/65 backdrop-blur-md z-[110] flex items-center justify-center p-4 transition-opacity">
+                    <div className="bg-white dark:bg-[#161616] w-full max-w-3xl shadow-2xl shadow-black/50 rounded-3xl overflow-hidden relative border border-[#EAE3D2] dark:border-white/10 grid grid-cols-1 md:grid-cols-12 max-h-[92vh] overflow-y-auto">
+                        
+                        {/* CỘT TRÁI: THÔNG TIN PHÒNG & BẢNG TÍNH TIỀN (OTA SUMMARY) */}
+                        <div className="md:col-span-5 bg-[#F8F5F0] dark:bg-[#1f1f1f] p-6 md:p-8 flex flex-col justify-between border-b md:border-b-0 md:border-r border-[#EAE3D2] dark:border-white/10">
+                            <div>
+                                <div className="relative h-44 rounded-2xl overflow-hidden mb-5 shadow-md">
+                                    <img
+                                        src={`https://images.unsplash.com/photo-${selectedRoom.type === 'VIP' ? '1582719478250-c89fae4237d8' : '1611892440504-42a792e24d32'}?q=80&w=800&auto=format&fit=crop`}
+                                        alt={selectedRoom.room_number}
+                                        className="w-full h-full object-cover"
                                     />
+                                    <span className="absolute top-3 left-3 bg-[#C19D60] text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow">
+                                        {selectedRoom.type}
+                                    </span>
                                 </div>
-                                <div className="pb-4">
-                                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#777] mb-2">Phone Number</label>
-                                    <input
-                                        type="tel"
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full bg-transparent border-b-2 border-[#EAE3D2] dark:border-white/20 text-[#222] dark:text-white px-2 py-3 outline-none focus:border-[#C19D60] transition-colors"
-                                        placeholder="+1 234 567 890"
-                                    />
+
+                                <p className="text-[10px] uppercase tracking-[0.25em] text-[#C19D60] font-bold mb-1">
+                                    {selectedHotel?.name}
+                                </p>
+                                <h4 className="text-2xl font-serif text-[#222] dark:text-white mb-2">
+                                    Room {selectedRoom.room_number}
+                                </h4>
+                                <p className="text-xs text-[#777] flex items-center gap-1.5 mb-5">
+                                    <FiMapPin className="text-[#C19D60]" /> {selectedHotel?.location}
+                                </p>
+
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold bg-white dark:bg-[#2a2a2a] px-2.5 py-1 rounded-md text-[#555] dark:text-gray-300">
+                                        <FiWifi className="text-[#C19D60]" /> Free WiFi
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold bg-white dark:bg-[#2a2a2a] px-2.5 py-1 rounded-md text-[#555] dark:text-gray-300">
+                                        <FiCoffee className="text-[#C19D60]" /> Breakfast
+                                    </span>
+                                    <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold bg-white dark:bg-[#2a2a2a] px-2.5 py-1 rounded-md text-[#555] dark:text-gray-300">
+                                        <FiUser className="text-[#C19D60]" /> 2 Guests
+                                    </span>
                                 </div>
                             </div>
+
+                            {/* CHI TIẾT GIÁ (PRICE BREAKDOWN) */}
+                            {(() => {
+                                const nights = checkInDate && checkOutDate
+                                    ? Math.max(0, Math.ceil((new Date(checkOutDate).getTime() - new Date(checkInDate).getTime()) / (1000 * 60 * 60 * 24)))
+                                    : 0;
+                                const totalPrice = nights * selectedRoom.price_per_night;
+                                return (
+                                    <div className="border-t border-[#EAE3D2] dark:border-white/10 pt-4 space-y-2.5 text-sm">
+                                        <div className="flex justify-between text-[#666] dark:text-gray-400">
+                                            <span>Đơn giá mỗi đêm</span>
+                                            <span className="font-semibold text-[#222] dark:text-gray-200">{selectedRoom.price_per_night.toLocaleString('vi-VN')}đ</span>
+                                        </div>
+                                        <div className="flex justify-between text-[#666] dark:text-gray-400">
+                                            <span>Thời gian lưu trú</span>
+                                            <span className="font-semibold text-[#222] dark:text-gray-200">{nights > 0 ? `${nights} đêm` : 'Chưa chọn ngày'}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[#666] dark:text-gray-400">
+                                            <span>Thuế & Phí dịch vụ</span>
+                                            <span className="text-green-600 dark:text-green-400 text-xs font-bold uppercase">Miễn phí</span>
+                                        </div>
+                                        <div className="flex justify-between items-baseline border-t border-[#EAE3D2] dark:border-white/10 pt-3 mt-2">
+                                            <span className="text-xs uppercase tracking-widest font-bold text-[#222] dark:text-white">Tổng thanh toán</span>
+                                            <span className="text-xl font-serif font-bold text-[#C19D60]">
+                                                {(nights > 0 ? totalPrice : selectedRoom.price_per_night).toLocaleString('vi-VN')}đ
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
-                        <div className="p-8 pt-0 flex gap-4">
-                            <button onClick={() => setShowCheckoutModal(false)} className="flex-1 py-4 rounded-xl text-xs font-bold text-[#222] dark:text-gray-100 uppercase tracking-widest border border-[#EAE3D2] dark:border-white/20 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">Cancel</button>
-                            <button onClick={handleConfirmBooking} className="flex-1 py-4 rounded-xl text-xs font-bold text-white uppercase tracking-widest bg-[#C19D60] hover:bg-[#A8874E] transition-all duration-300 hover:shadow-lg hover:shadow-[#C19D60]/40 flex items-center justify-center gap-2">Confirm <FiCheck /></button>
+
+                        {/* CỘT PHẢI: CHỌN LỊCH CHECK-IN/OUT & THÔNG TIN KHÁCH HÀNG */}
+                        <div className="md:col-span-7 p-6 md:p-8 flex flex-col justify-between">
+                            <div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-[0.25em] text-[#C19D60] font-bold">Reservation</p>
+                                        <h3 className="text-2xl font-serif text-[#222] dark:text-gray-100">Complete Your Stay</h3>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowCheckoutModal(false)}
+                                        className="w-9 h-9 rounded-full bg-gray-100 dark:bg-[#222] flex items-center justify-center hover:bg-[#C19D60] hover:text-white transition-colors"
+                                    >
+                                        <FiCheck className="text-lg rotate-45" />
+                                    </button>
+                                </div>
+
+                                {/* BƯỚC 1: CHỌN NGÀY TRONG MODAL (GIỐNG AIRBNB / BOOKING.COM) */}
+                                <div className="mb-6">
+                                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#777] mb-2">
+                                        1. Select Dates (Check-in & Check-out) *
+                                    </label>
+                                    <div className="grid grid-cols-2 border border-[#EAE3D2] dark:border-white/15 rounded-xl overflow-hidden bg-[#FDFBF7] dark:bg-[#222]/60">
+                                        <div className="p-3 border-r border-[#EAE3D2] dark:border-white/15">
+                                            <span className="block text-[9px] uppercase tracking-widest text-[#C19D60] font-bold mb-1">Check-In</span>
+                                            <input
+                                                type="date"
+                                                value={checkInDate}
+                                                min={new Date().toISOString().split('T')[0]}
+                                                onChange={(e) => setCheckInDate(e.target.value)}
+                                                className="w-full bg-transparent text-xs md:text-sm font-medium text-[#222] dark:text-white outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                                            />
+                                        </div>
+                                        <div className="p-3">
+                                            <span className="block text-[9px] uppercase tracking-widest text-[#C19D60] font-bold mb-1">Check-Out</span>
+                                            <input
+                                                type="date"
+                                                value={checkOutDate}
+                                                min={checkInDate || new Date().toISOString().split('T')[0]}
+                                                onChange={(e) => setCheckOutDate(e.target.value)}
+                                                className="w-full bg-transparent text-xs md:text-sm font-medium text-[#222] dark:text-white outline-none cursor-pointer [color-scheme:light] dark:[color-scheme:dark]"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* BƯỚC 2: THÔNG TIN KHÁCH HÀNG */}
+                                <div className="space-y-4">
+                                    <label className="block text-[10px] uppercase tracking-widest font-bold text-[#777]">
+                                        2. Guest Information *
+                                    </label>
+                                    <div>
+                                        <span className="block text-[10px] text-[#777] mb-1">Full Name</span>
+                                        <input
+                                            type="text"
+                                            value={customerName}
+                                            onChange={(e) => setCustomerName(e.target.value)}
+                                            className="w-full bg-[#FDFBF7] dark:bg-[#222]/60 border border-[#EAE3D2] dark:border-white/15 rounded-xl text-[#222] dark:text-white px-4 py-3 text-sm outline-none focus:border-[#C19D60] transition-colors"
+                                            placeholder="Nguyễn Văn A"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] text-[#777] mb-1">Phone Number</span>
+                                        <input
+                                            type="tel"
+                                            value={phoneNumber}
+                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            className="w-full bg-[#FDFBF7] dark:bg-[#222]/60 border border-[#EAE3D2] dark:border-white/15 rounded-xl text-[#222] dark:text-white px-4 py-3 text-sm outline-none focus:border-[#C19D60] transition-colors"
+                                            placeholder="0901 234 567"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* NÚT XÁC NHẬN ĐẶT PHÒNG */}
+                            <div className="pt-6 mt-6 border-t border-[#EAE3D2] dark:border-white/10 flex gap-3">
+                                <button
+                                    onClick={() => setShowCheckoutModal(false)}
+                                    className="px-6 py-3.5 rounded-xl text-xs font-bold text-[#777] dark:text-gray-300 uppercase tracking-widest border border-[#EAE3D2] dark:border-white/15 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmBooking}
+                                    className="flex-1 py-3.5 rounded-xl text-xs font-bold text-white uppercase tracking-widest bg-[#C19D60] hover:bg-[#A8874E] transition-all duration-300 shadow-lg shadow-[#C19D60]/25 flex items-center justify-center gap-2"
+                                >
+                                    Confirm & Book Now <FiCheck className="text-base" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
