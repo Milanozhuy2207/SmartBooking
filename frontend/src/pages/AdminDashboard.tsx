@@ -257,7 +257,7 @@ const AdminDashboard = () => {
     });
 
     // Revenue per Hotel for Overview Chart
-    const hotelRevenueStats = hotels.map(hotel => {
+    const hotelRevenueStats = (hotels || []).map(hotel => {
         const hotelBookings = bookings.filter(
             b => b.room_id?.hotel_id?.name === hotel.name && isRevenueStatus(b.status)
         );

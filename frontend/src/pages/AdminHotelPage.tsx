@@ -158,7 +158,7 @@ const AdminHotelPage = () => {
                             <p className="text-[#777]">No hotels found. Add your first property!</p>
                         </div>
                     ) : (
-                        hotels.map((hotel) => (
+                        (hotels || []).map((hotel) => (
                             <div key={hotel._id} className="bg-white dark:bg-[#1a1a1a] border border-[#EAE3D2] dark:border-[#333] overflow-hidden group hover:border-[#C19D60] transition-colors">
                                 <div className="h-48 overflow-hidden relative bg-gray-100 dark:bg-gray-800">
                                     {hotel.image_url ? (

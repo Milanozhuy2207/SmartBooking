@@ -477,7 +477,7 @@ const VendorDashboard = () => {
                                     </div>
 
                                     <div className="space-y-4">
-                                        {hotels.map(h => (
+                                        {(hotels || []).map(h => (
                                             <div key={h._id} className="p-4 rounded-xl bg-gray-50 dark:bg-[#1e222b] border border-gray-200/60 dark:border-white/5 flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-4">
                                                     <img src={h.image_url} alt={h.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
@@ -588,7 +588,7 @@ const VendorDashboard = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                                    {hotels.map((hotel) => (
+                                    {(hotels || []).map((hotel) => (
                                         <div key={hotel._id} className="bg-white dark:bg-[#16191f] rounded-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden shadow-sm hover:shadow-xl transition-all flex flex-col">
                                             <div className="h-48 relative bg-gray-900 overflow-hidden">
                                                 <img src={hotel.image_url} alt={hotel.name} className="w-full h-full object-cover" />

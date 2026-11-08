@@ -423,7 +423,7 @@ const HomePage = () => {
 
                             {/* THANH PILLS CHỌN NHANH ĐIỂM ĐẾN */}
                             <div className="flex flex-wrap items-center justify-center gap-2.5 mb-14">
-                                {['Tất cả', ...locations.map((l: any) => l.name || l.province_name || l.title || l)].map((locName: string, idx: number) => (
+                                {['Tất cả', ...(Array.isArray(locations) ? locations : []).map((l: any) => l.name || l.province_name || l.title || l)].map((locName: string, idx: number) => (
                                     <button
                                         key={idx}
                                         onClick={() => setSelectedLocation(locName)}
@@ -433,7 +433,7 @@ const HomePage = () => {
                                                 : 'bg-white dark:bg-[#1a1a1a] text-[#555] dark:text-gray-300 border-[#EAE3D2] dark:border-[#333] hover:border-[#C19D60] hover:text-[#C19D60]'
                                         }`}
                                     >
-                                        {locName === 'Tất cả' ? `Tất cả (${hotels.length})` : locName}
+                                        {locName === 'Tất cả' ? `Tất cả (${(hotels || []).length})` : locName}
                                     </button>
                                 ))}
                             </div>
@@ -450,7 +450,7 @@ const HomePage = () => {
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                                    {hotels.map((hotel) => (
+                                    {(hotels || []).map((hotel) => (
                                         <div key={hotel._id} onClick={() => handleSelectHotel(hotel)} className="group cursor-pointer bg-white dark:bg-[#1a1a1a] border border-[#EAE3D2] dark:border-[#333] hover:border-[#C19D60] rounded-2xl shadow-sm hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 flex flex-col h-full">
                                             <div className="relative h-72 overflow-hidden rounded-t-2xl bg-[#111]">
                                                 <img src={hotel.image_url} alt={hotel.name} className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover:scale-110 group-hover:opacity-100" />
@@ -548,10 +548,10 @@ const HomePage = () => {
                         <div className="mb-12 flex flex-wrap items-center justify-between gap-4 border-b border-[#EAE3D2] dark:border-white/10 pb-6">
                             <div className="flex flex-wrap items-center gap-3">
                                 {[
-                                    { key: 'ALL', label: 'Tất cả hạng phòng', count: rooms.length },
-                                    { key: 'STANDARD', label: 'Hạng Standard', count: rooms.filter(r => r.type === 'STANDARD').length },
-                                    { key: 'DELUXE', label: 'Hạng Deluxe', count: rooms.filter(r => r.type === 'DELUXE').length },
-                                    { key: 'VIP', label: 'Hạng VIP & Villa', count: rooms.filter(r => r.type === 'VIP').length }
+                                    { key: 'ALL', label: 'Tất cả hạng phòng', count: (rooms || []).length },
+                                    { key: 'STANDARD', label: 'Hạng Standard', count: (rooms || []).filter(r => r.type === 'STANDARD').length },
+                                    { key: 'DELUXE', label: 'Hạng Deluxe', count: (rooms || []).filter(r => r.type === 'DELUXE').length },
+                                    { key: 'VIP', label: 'Hạng VIP & Villa', count: (rooms || []).filter(r => r.type === 'VIP').length }
                                 ].map((tab) => (
                                     <button
                                         key={tab.key}
@@ -572,7 +572,7 @@ const HomePage = () => {
                                 ))}
                             </div>
                             <p className="text-xs text-[#777] italic">
-                                Đang hiển thị <strong className="text-[#C19D60] not-italic">{selectedRoomType === 'ALL' ? rooms.length : rooms.filter(r => r.type === selectedRoomType).length}</strong> phòng trống thực tế tại {selectedHotel.name}
+                                Đang hiển thị <strong className="text-[#C19D60] not-italic">{selectedRoomType === 'ALL' ? (rooms || []).length : (rooms || []).filter(r => r.type === selectedRoomType).length}</strong> phòng trống thực tế tại {selectedHotel.name}
                             </p>
                         </div>
 
@@ -588,7 +588,7 @@ const HomePage = () => {
                                     </div>
                                 ))}
                             </div>
-                        ) : rooms.length === 0 ? (
+                        ) : (rooms || []).length === 0 ? (
                             <div className="bg-white dark:bg-[#1a1a1a] p-16 text-center rounded-2xl border border-[#EAE3D2] dark:border-white/10">
                                 <p className="text-lg font-serif text-[#222] dark:text-white mb-2">Hết phòng trống trong khoảng ngày này</p>
                                 <p className="text-sm text-[#777]">Vui lòng chọn khoảng ngày Check-in / Check-out khác để tìm phòng trống.</p>
@@ -617,7 +617,7 @@ const HomePage = () => {
                                 ])
                                     .filter(section => selectedRoomType === 'ALL' || selectedRoomType === section.type)
                                     .map((section) => {
-                                        const sectionRooms = rooms.filter(r => r.type === section.type);
+                                        const sectionRooms = (rooms || []).filter(r => r.type === section.type);
                                         if (sectionRooms.length === 0) return null;
                                         const isExpanded = !!expandedSections[section.type] || selectedRoomType !== 'ALL';
                                         const displayedRooms = isExpanded ? sectionRooms : sectionRooms.slice(0, 6);

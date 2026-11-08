@@ -267,7 +267,7 @@ const MyBookingsPage = () => {
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        {bookings.map((b) => (
+                        {(bookings || []).map((b) => (
                             <div key={b._id} className="bg-white dark:bg-[#1a1a1a] p-8 shadow-xl border border-[#EAE3D2] dark:border-[#333] flex flex-col md:flex-row items-start md:items-center justify-between hover:border-[#C19D60] dark:hover:border-[#C19D60] transition-all duration-300 gap-6 group rounded-2xl">
                                 <div className="space-y-2.5">
                                     {b.room_id?.hotel_id && (

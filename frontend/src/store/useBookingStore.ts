@@ -62,10 +62,11 @@ export const useBookingStore = create<BookingStore>((set) => ({
         set({ isLoading: true });
         try {
             const res = await axiosClient.get('/hotels', { params: { location } });
-            set({ hotels: res.data.data, isLoading: false });
+            const dataList = Array.isArray(res.data?.data) ? res.data.data : [];
+            set({ hotels: dataList, isLoading: false });
         } catch (error) {
             console.error('Error fetching hotels:', error);
-            set({ isLoading: false });
+            set({ hotels: [], isLoading: false });
         }
     },
 
@@ -73,10 +74,11 @@ export const useBookingStore = create<BookingStore>((set) => ({
         set({ isLoading: true });
         try {
             const response = await axiosClient.get('/hotels/locations');
-            set({ locations: response.data.data, isLoading: false });
+            const dataList = Array.isArray(response.data?.data) ? response.data.data : [];
+            set({ locations: dataList, isLoading: false });
         } catch (error) {
             console.error('Error fetching locations:', error);
-            set({ isLoading: false });
+            set({ locations: [], isLoading: false });
         }
     },
 
@@ -84,10 +86,11 @@ export const useBookingStore = create<BookingStore>((set) => ({
         set({ isLoading: true });
         try {
             const res = await axiosClient.get(`/hotels/${hotelId}/rooms`, { params: { check_in: checkIn, check_out: checkOut } });
-            set({ rooms: res.data.data, isLoading: false });
+            const dataList = Array.isArray(res.data?.data) ? res.data.data : [];
+            set({ rooms: dataList, isLoading: false });
         } catch (error) {
             console.error('Error fetching rooms:', error);
-            set({ isLoading: false });
+            set({ rooms: [], isLoading: false });
         }
     },
 
