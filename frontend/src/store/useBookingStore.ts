@@ -42,7 +42,15 @@ interface BookingStore {
     initSocketListeners: () => void;
 }
 
-const socket: Socket = io('http://localhost:3000');
+const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL ||
+    (import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+        : 'http://localhost:3000');
+
+const socket: Socket = io(SOCKET_BASE_URL, {
+    autoConnect: true,
+    transports: ['websocket', 'polling']
+});
 
 export const useBookingStore = create<BookingStore>((set) => ({
     hotels: [],
