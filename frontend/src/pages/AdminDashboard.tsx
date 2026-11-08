@@ -1062,7 +1062,7 @@ const AdminDashboard = () => {
                 booking={checkoutQrBooking}
                 mode="CHECKOUT"
                 onClose={() => setCheckoutQrBooking(null)}
-                onPaymentConfirmed={() => fetchDashboardData()}
+                onPaymentConfirmed={() => fetchAllAdminData()}
             />
         </div>
     );
