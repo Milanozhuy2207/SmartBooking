@@ -28,6 +28,7 @@ import {
 } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
+import VietQRModal from '../components/VietQRModal';
 
 interface Room {
     _id: string;
@@ -80,6 +81,7 @@ interface SystemUser {
 const AdminDashboard = () => {
     const [activeSection, setActiveSection] = useState<'overview' | 'bookings' | 'hotels' | 'users'>('overview');
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [checkoutQrBooking, setCheckoutQrBooking] = useState<Booking | null>(null);
     const [hotels, setHotels] = useState<Hotel[]>([]);
     const [users, setUsers] = useState<SystemUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -794,10 +796,10 @@ const AdminDashboard = () => {
                                                         )}
                                                         {b.status === 'CHECKED_IN' && (
                                                             <button
-                                                                onClick={() => handleUpdateBookingStatus(b._id, 'CHECKED_OUT')}
-                                                                className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                                                                onClick={() => setCheckoutQrBooking(b)}
+                                                                className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
                                                             >
-                                                                <FiCheckCircle /> Trả phòng (Check-out)
+                                                                <FiCheckCircle /> Trả phòng • Quét QR (Check-out)
                                                             </button>
                                                         )}
                                                         {(b.status === 'CHECKED_OUT' || b.status === 'CANCELLED') && (
@@ -1054,6 +1056,14 @@ const AdminDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* MODAL VIETQR KHI ẤN TRẢ PHÒNG (CHECK-OUT) */}
+            <VietQRModal
+                booking={checkoutQrBooking}
+                mode="CHECKOUT"
+                onClose={() => setCheckoutQrBooking(null)}
+                onPaymentConfirmed={() => fetchDashboardData()}
+            />
         </div>
     );
 };

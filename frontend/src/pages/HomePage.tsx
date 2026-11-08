@@ -40,6 +40,7 @@ const HomePage = () => {
 
     // Mốc cuộn trang
     const hotelSectionRef = useRef<HTMLDivElement>(null);
+    const reviewsSectionRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         initSocketListeners();
@@ -497,11 +498,17 @@ const HomePage = () => {
                                     <FiChevronLeft className="text-base" /> Quay lại danh sách khách sạn
                                 </button>
                                 <h2 className="text-4xl md:text-5xl font-serif text-[#222] dark:text-gray-100 mb-3">{selectedHotel.name}</h2>
-                                <div className="flex items-center gap-6 text-[#777] text-sm">
+                                <div className="flex flex-wrap items-center gap-6 text-[#777] text-sm">
                                     <span className="flex items-center gap-1"><HiOutlineLocationMarker className="text-[#C19D60] text-lg" /> {selectedHotel.location}</span>
                                     <span className="flex items-center gap-1 text-[#C19D60]">
                                         {[...Array(selectedHotel.star_rating)].map((_, i) => <HiStar key={i} />)}
                                     </span>
+                                    <button
+                                        onClick={() => reviewsSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#C19D60] bg-[#C19D60]/10 hover:bg-[#C19D60] hover:text-white px-3.5 py-1.5 rounded-full border border-[#C19D60]/30 transition-all cursor-pointer"
+                                    >
+                                        <FiStar /> Xem & Viết Đánh Giá Khách Lưu Trú ↓
+                                    </button>
                                 </div>
                             </div>
 
@@ -800,11 +807,13 @@ const HomePage = () => {
                         )}
 
                         {/* KHU VỰC ĐÁNH GIÁ & BÌNH LUẬN TỪ KHÁCH LƯU TRÚ */}
-                        <HotelReviewsSection
-                            hotelId={selectedHotel._id}
-                            hotelName={selectedHotel.name}
-                            currentUser={currentUser}
-                        />
+                        <div ref={reviewsSectionRef}>
+                            <HotelReviewsSection
+                                hotelId={selectedHotel._id}
+                                hotelName={selectedHotel.name}
+                                currentUser={currentUser}
+                            />
+                        </div>
                     </div>
                 )}
             </main>
