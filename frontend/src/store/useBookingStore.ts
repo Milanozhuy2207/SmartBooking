@@ -45,7 +45,7 @@ interface BookingStore {
 const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL ||
     (import.meta.env.VITE_API_URL
         ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-        : 'http://localhost:3000');
+        : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'));
 
 const socket: Socket = io(SOCKET_BASE_URL, {
     autoConnect: true,

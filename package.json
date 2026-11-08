@@ -1,8 +1,5 @@
 {
   "name": "smartbooking",
   "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "build": "cd frontend && npm run build"
-  }
+  "version": "1.0.0"
 }
