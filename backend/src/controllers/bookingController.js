@@ -10,7 +10,10 @@ exports.createBooking = async (req, res) => {
 
         const checkIn = new Date(checkInDate);
         const checkOut = new Date(checkOutDate);
-        const difftime = Math.abs(checkOut - checkIn);
+        if (isNaN(checkIn) || isNaN(checkOut) || checkOut <= checkIn) {
+            return res.status(400).json({ success: false, message: "Ngày nhận/trả phòng không hợp lệ" });
+        }
+        const difftime = checkOut - checkIn;
         const nights = Math.max(1, Math.ceil(difftime / (1000 * 60 * 60 * 24)));
 
         const room = await Room.findById(roomId);
@@ -18,13 +21,45 @@ exports.createBooking = async (req, res) => {
             return res.status(404).json({ success: false, message: "Invalid room Id" });
         }
 
-        const unavailable = await RoomAvailability.findOne({
+        // Giữ chỗ NGUYÊN TỬ từng đêm: điều kiện "còn phòng" nằm ngay trong filter của
+        // findOneAndUpdate nên 2 request đồng thời không thể cùng giành 1 chỗ cuối cùng.
+        // held_count của chính khách (đã lock qua socket) được chuyển thành booked_count;
+        // dùng $max để held_count không bao giờ bị âm khi đặt qua REST không lock.
+        const nightDocs = await RoomAvailability.find({
             room_id: roomId,
-            date: { $gte: checkIn, $lt: checkOut },
-            $expr: { $gte: ["$booked_count", "$total_inventory"] }
-        });
-        if (unavailable) {
-            return res.status(404).json({ success: false, message: "Room is not available for these dates" });
+            date: { $gte: checkIn, $lt: checkOut }
+        }).select('_id');
+
+        const reserved = []; // { _id, hadHold } để rollback nếu có đêm hết phòng
+        let soldOut = false;
+        for (const doc of nightDocs) {
+            const before = await RoomAvailability.findOneAndUpdate(
+                { _id: doc._id, $expr: { $lt: ["$booked_count", "$total_inventory"] } },
+                [{
+                    $set: {
+                        booked_count: { $add: ["$booked_count", 1] },
+                        held_count: { $max: [0, { $subtract: ["$held_count", 1] }] }
+                    }
+                }],
+                { new: false, updatePipeline: true }
+            );
+            if (!before) {
+                soldOut = true;
+                break;
+            }
+            reserved.push({ _id: doc._id, hadHold: before.held_count > 0 });
+        }
+
+        const rollbackReserved = () => Promise.all(reserved.map(r =>
+            RoomAvailability.updateOne(
+                { _id: r._id },
+                { $inc: { booked_count: -1, held_count: r.hadHold ? 1 : 0 } }
+            )
+        ));
+
+        if (soldOut) {
+            await rollbackReserved();
+            return res.status(409).json({ success: false, message: "Room is not available for these dates" });
         }
 
         const totalPrice = room.price_per_night * nights;
@@ -42,12 +77,12 @@ exports.createBooking = async (req, res) => {
             check_out: checkOut,
         });
 
-        await booking.save();
-
-        await RoomAvailability.updateMany(
-            { room_id: roomId, date: { $gte: checkIn, $lt: checkOut } },
-            { $inc: { held_count: -1, booked_count: 1 } }
-        );
+        try {
+            await booking.save();
+        } catch (saveError) {
+            await rollbackReserved();
+            throw saveError;
+        }
 
         res.status(200).json({ success: true, message: 'Booking success!', data: booking });
     } catch (error) {
@@ -105,9 +140,23 @@ exports.updateBookingStatus = async (req, res) => {
         const { status } = req.body;
         const bookingId = req.params.id;
 
+        const allowedStatuses = ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ success: false, message: "Trạng thái không hợp lệ" });
+        }
+
         const booking = await Booking.findById(bookingId);
         if (!booking) {
             return res.status(404).json({ success: false, message: "Booking not found" });
+        }
+
+        // Chống IDOR: Vendor chỉ được xử lý đơn thuộc khách sạn của mình
+        if (req.role === 'VENDOR') {
+            const room = await Room.findById(booking.room_id).select('hotel_id');
+            const ownsHotel = room && await Hotel.exists({ _id: room.hotel_id, vendor_id: req.userId });
+            if (!ownsHotel) {
+                return res.status(403).json({ success: false, message: "Bạn không có quyền xử lý đơn này" });
+            }
         }
 
         const previousStatus = booking.status;
@@ -121,7 +170,7 @@ exports.updateBookingStatus = async (req, res) => {
 
         if (status === 'CANCELLED' && previousStatus !== 'CANCELLED' && booking.check_in && booking.check_out) {
             await RoomAvailability.updateMany(
-                { room_id: booking.room_id, date: { $gte: booking.check_in, $lt: booking.check_out } },
+                { room_id: booking.room_id, date: { $gte: booking.check_in, $lt: booking.check_out }, booked_count: { $gt: 0 } },
                 { $inc: { booked_count: -1 } }
             );
         }
@@ -161,7 +210,7 @@ exports.cancelMyBooking = async (req, res) => {
 
         if (booking.check_in && booking.check_out) {
             await RoomAvailability.updateMany(
-                { room_id: booking.room_id, date: { $gte: booking.check_in, $lt: booking.check_out } },
+                { room_id: booking.room_id, date: { $gte: booking.check_in, $lt: booking.check_out }, booked_count: { $gt: 0 } },
                 { $inc: { booked_count: -1 } }
             );
         }
@@ -194,44 +243,59 @@ exports.lookupGuestBooking = async (req, res) => {
     }
 };
 
+// LƯU Ý: Đây là luồng xác nhận thủ công phục vụ demo. Bản production cần để cổng thanh toán
+// (PayOS/SePay/VNPAY) gọi webhook, xác thực chữ ký HMAC và chống xử lý trùng bằng transaction_id unique.
 exports.confirmVietQRPayment = async (req, res) => {
     try {
         const bookingId = req.params.id;
         const { paymentType } = req.body || {};
-        const booking = await Booking.findById(bookingId);
-        if (!booking) {
-            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn đặt phòng' });
-        }
-
-        const previousStatus = booking.status;
         const isDeposit = paymentType === 'DEPOSIT';
 
-        if (isDeposit) {
-            const depositAmt = Math.round(booking.total_price * 0.3);
-            booking.payment_type = 'DEPOSIT';
-            booking.paid_amount = depositAmt;
-            booking.remaining_amount = Math.max(0, booking.total_price - depositAmt);
-        } else {
-            booking.payment_type = 'FULL';
-            booking.paid_amount = booking.total_price;
-            booking.remaining_amount = 0;
+        const existing = await Booking.findById(bookingId);
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn đặt phòng' });
+        }
+        if (existing.status === 'CANCELLED' || existing.status === 'CHECKED_OUT') {
+            return res.status(409).json({ success: false, message: 'Đơn đã hủy hoặc đã trả phòng, không thể thanh toán' });
         }
 
-        if (previousStatus === 'PENDING') {
-            booking.status = 'CONFIRMED';
-            if (booking.user_id) {
-                const pointsEarned = Math.floor(booking.total_price / 10000);
-                await CustomerProfile.findOneAndUpdate(
-                    { user_id: booking.user_id },
-                    {
-                        $inc: { reward_points: pointsEarned },
-                        $setOnInsert: { full_name: booking.customer_name || 'Khách hàng' }
-                    },
-                    { upsert: true }
-                );
-            }
+        const paidAmount = isDeposit ? Math.round(existing.total_price * 0.3) : existing.total_price;
+
+        // Chuyển trạng thái NGUYÊN TỬ PENDING -> CONFIRMED: chỉ 1 request thắng,
+        // nên điểm thưởng không bị cộng trùng và không ghi đè đơn đã thanh toán.
+        const booking = await Booking.findOneAndUpdate(
+            { _id: bookingId, status: 'PENDING' },
+            {
+                $set: {
+                    status: 'CONFIRMED',
+                    payment_type: isDeposit ? 'DEPOSIT' : 'FULL',
+                    paid_amount: paidAmount,
+                    remaining_amount: Math.max(0, existing.total_price - paidAmount)
+                }
+            },
+            { new: true }
+        );
+
+        if (!booking) {
+            // Đơn đã được xác nhận trước đó: trả về trạng thái hiện tại (idempotent)
+            return res.status(200).json({
+                success: true,
+                message: 'Đơn đặt phòng đã được thanh toán trước đó.',
+                data: existing
+            });
         }
-        await booking.save();
+
+        if (booking.user_id) {
+            const pointsEarned = Math.floor(booking.total_price / 10000);
+            await CustomerProfile.findOneAndUpdate(
+                { user_id: booking.user_id },
+                {
+                    $inc: { reward_points: pointsEarned },
+                    $setOnInsert: { full_name: booking.customer_name || 'Khách hàng' }
+                },
+                { upsert: true }
+            );
+        }
 
         return res.status(200).json({
             success: true,
