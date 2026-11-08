@@ -80,6 +80,15 @@ const VendorDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
 
+    useEffect(() => {
+        const sectionTitles: Record<string, string> = {
+            overview: 'Tổng Quan Đối Tác | SmartBooking Partner Extranet',
+            bookings: 'Vận Hành Đặt Phòng (Check-in / Check-out) | SmartBooking Partner',
+            properties: 'Cơ Sở Lưu Trú & Quỹ Phòng | SmartBooking Partner'
+        };
+        document.title = sectionTitles[activeSection] || 'Partner Extranet | SmartBooking';
+    }, [activeSection]);
+
     // Filters
     const [bookingStatusFilter, setBookingStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED'>('ALL');
     const [searchQuery, setSearchQuery] = useState('');

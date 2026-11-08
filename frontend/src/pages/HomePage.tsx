@@ -5,6 +5,9 @@ import { HiStar, HiOutlineLocationMarker } from 'react-icons/hi';
 import toast, { Toaster } from 'react-hot-toast';
 import { useBookingStore, type Room, type Hotel } from '../store/useBookingStore';
 import axiosClient from '../api/axiosClient';
+import AIConciergeChat from '../components/AIConciergeChat';
+import VietQRModal from '../components/VietQRModal';
+import HotelReviewsSection from '../components/HotelReviewsSection';
 
 const HomePage = () => {
     const { hotels, rooms, locations, isLoading, fetchHotels, fetchRoomsByHotel, fetchLocations, lockRoom, initSocketListeners, confirmBookingDone } = useBookingStore();
@@ -24,7 +27,8 @@ const HomePage = () => {
     const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
     const [selectedRoomType, setSelectedRoomType] = useState<'ALL' | 'STANDARD' | 'DELUXE' | 'VIP'>('ALL');
     const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-    const [showCheckoutModal, setShowCheckoutModal] = useState(false); useState(false);
+    const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+    const [vietQrBooking, setVietQrBooking] = useState<any>(null);
     const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -71,6 +75,20 @@ const HomePage = () => {
         const locQuery = selectedLocation === 'Tất cả' ? '' : selectedLocation;
         fetchHotels(locQuery);
     }, [selectedLocation, fetchHotels]);
+
+    // Tự động cập nhật tiêu đề tab trình duyệt theo trạng thái màn hình trên HomePage
+    useEffect(() => {
+        if (showCheckoutModal && selectedRoom && selectedHotel) {
+            document.title = `Đặt Phòng ${selectedRoom.room_number} - ${selectedHotel.name} | SmartBooking`;
+        } else if (selectedHotel) {
+            const typeSuffix = selectedRoomType === 'ALL' ? '' : ` (${selectedRoomType})`;
+            document.title = `${selectedHotel.name}${typeSuffix} | SmartBooking ${selectedHotel.star_rating}★`;
+        } else if (selectedLocation && selectedLocation !== 'Tất cả') {
+            document.title = `Khách Sạn & Resort tại ${selectedLocation} | SmartBooking`;
+        } else {
+            document.title = 'SmartBooking | Tuyệt Tác Nghỉ Dưỡng 5-6 Sao Việt Nam';
+        }
+    }, [selectedHotel, selectedLocation, selectedRoomType, showCheckoutModal, selectedRoom]);
 
     // Dark mode toggle effect
     useEffect(() => {
@@ -137,13 +155,16 @@ const HomePage = () => {
                 checkOutDate
             });
             if (res.data.success) {
-                toast.success('Đặt phòng thành công!', { id: loadingId });
+                toast.success('Đặt phòng thành công! Vui lòng quét mã VietQR để hoàn tất thanh toán.', { id: loadingId });
 
                 // Hủy timeout đếm ngược giữ phòng trên server
                 confirmBookingDone(selectedRoom!._id);
 
                 setShowCheckoutModal(false);
                 setSelectedRoom(null);
+                if (res.data.data) {
+                    setVietQrBooking(res.data.data);
+                }
                 if (currentUser) {
                     setMyBookingsCount(prev => prev + 1);
                 } else {
@@ -777,9 +798,42 @@ const HomePage = () => {
                                     })}
                             </div>
                         )}
+
+                        {/* KHU VỰC ĐÁNH GIÁ & BÌNH LUẬN TỪ KHÁCH LƯU TRÚ */}
+                        <HotelReviewsSection
+                            hotelId={selectedHotel._id}
+                            hotelName={selectedHotel.name}
+                            currentUser={currentUser}
+                        />
                     </div>
                 )}
             </main>
+
+            {/* MODAL THANH TOÁN VIETQR TỰ ĐỘNG */}
+            <VietQRModal
+                booking={vietQrBooking}
+                onClose={() => setVietQrBooking(null)}
+                onPaymentConfirmed={() => {
+                    if (selectedHotel) {
+                        fetchRoomsByHotel(selectedHotel._id, checkInDate, checkOutDate);
+                    }
+                }}
+            />
+
+            {/* TRỢ LÝ AI CONCIERGE GỢI Ý KHÁCH SẠN 24/7 */}
+            <AIConciergeChat
+                onSelectHotelById={(hotelId) => {
+                    const found = hotels.find(h => h._id === hotelId);
+                    if (found) {
+                        handleSelectHotel(found);
+                    } else {
+                        axiosClient.get('/hotels').then(res => {
+                            const target = (res.data?.data || []).find((h: Hotel) => h._id === hotelId);
+                            if (target) handleSelectHotel(target);
+                        });
+                    }
+                }}
+            />
 
             {/* MODERN OTA CHECKOUT MODAL */}
             {showCheckoutModal && selectedRoom && (

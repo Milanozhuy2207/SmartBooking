@@ -83,6 +83,16 @@ const AdminDashboard = () => {
     const [hotels, setHotels] = useState<Hotel[]>([]);
     const [users, setUsers] = useState<SystemUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const sectionTitles: Record<string, string> = {
+            overview: 'Tổng Quan & Doanh Thu | SmartBooking Admin',
+            bookings: 'Quản Lý Đặt Phòng | SmartBooking Admin',
+            hotels: 'Hệ Thống Khách Sạn | SmartBooking Admin',
+            users: 'Nhân Sự & Phân Quyền | SmartBooking Admin'
+        };
+        document.title = sectionTitles[activeSection] || 'Admin Command Center | SmartBooking';
+    }, [activeSection]);
     const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
 
     // Filters

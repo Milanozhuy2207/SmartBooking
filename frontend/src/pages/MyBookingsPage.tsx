@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiCheckCircle, FiHome, FiSun, FiMoon, FiAward, FiCalendar, FiXCircle, FiSearch, FiPhone, FiArrowLeft, FiUser, FiLogOut, FiLogIn, FiMapPin } from 'react-icons/fi';
+import { FiClock, FiCheckCircle, FiHome, FiSun, FiMoon, FiAward, FiCalendar, FiXCircle, FiSearch, FiPhone, FiArrowLeft, FiUser, FiLogOut, FiLogIn, FiMapPin, FiStar } from 'react-icons/fi';
+import { HiStar } from 'react-icons/hi';
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
+import VietQRModal from '../components/VietQRModal';
 
 interface Booking {
     _id: string;
     room_id: {
         room_number: string;
+        name?: string;
         type: string;
         price_per_night: number;
-        hotel_id?: { name: string; location: string };
+        hotel_id?: { _id?: string; name: string; location: string };
     };
     customer_name: string;
     phone_number: string;
@@ -27,6 +30,11 @@ const MyBookingsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
     const [guestPhone, setGuestPhone] = useState('');
+    const [vietQrBooking, setVietQrBooking] = useState<Booking | null>(null);
+    const [reviewBooking, setReviewBooking] = useState<Booking | null>(null);
+    const [reviewRating, setReviewRating] = useState(5);
+    const [reviewComment, setReviewComment] = useState('');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(() => {
         const u = localStorage.getItem('user');
         try {
@@ -321,12 +329,35 @@ const MyBookingsPage = () => {
                                         </span>
                                     )}
 
-                                    {isLoggedIn && b.status === 'PENDING' && (
+                                    {b.status === 'PENDING' && (
+                                        <div className="flex flex-wrap items-center gap-2 mt-2">
+                                            <button
+                                                onClick={() => setVietQrBooking(b)}
+                                                className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest bg-[#C19D60] text-white rounded-lg hover:bg-[#a68347] transition-colors cursor-pointer"
+                                            >
+                                                Thanh Toán VietQR
+                                            </button>
+                                            {isLoggedIn && (
+                                                <button
+                                                    onClick={() => handleCancelMyBooking(b._id)}
+                                                    className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 border border-red-500/40 rounded-lg hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
+                                                >
+                                                    Hủy đặt phòng
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {(b.status === 'CONFIRMED' || b.status === 'CHECKED_OUT') && b.room_id?.hotel_id && (
                                         <button
-                                            onClick={() => handleCancelMyBooking(b._id)}
-                                            className="mt-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 border border-red-500/40 rounded-lg hover:bg-red-500 hover:text-white transition-colors"
+                                            onClick={() => {
+                                                setReviewBooking(b);
+                                                setReviewRating(5);
+                                                setReviewComment('');
+                                            }}
+                                            className="mt-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-[#C19D60] border border-[#C19D60]/40 rounded-lg hover:bg-[#C19D60] hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
                                         >
-                                            Hủy đặt phòng
+                                            <FiStar /> Đánh Giá Kỳ Nghỉ
                                         </button>
                                     )}
                                 </div>
@@ -335,6 +366,104 @@ const MyBookingsPage = () => {
                     </div>
                 )}
             </main>
+
+            {/* MODAL THANH TOÁN VIETQR */}
+            <VietQRModal
+                booking={vietQrBooking}
+                onClose={() => setVietQrBooking(null)}
+                onPaymentConfirmed={() => {
+                    if (isLoggedIn) fetchBooking();
+                }}
+            />
+
+            {/* MODAL ĐÁNH GIÁ KỲ NGHỈ SAU KHI LƯU TRÚ */}
+            {reviewBooking && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[130] flex items-center justify-center p-4">
+                    <div className="bg-white dark:bg-[#1a1a1a] w-full max-w-md rounded-3xl p-6 md:p-8 border border-[#EAE3D2] dark:border-white/10 shadow-2xl space-y-5">
+                        <div>
+                            <span className="text-[10px] uppercase tracking-[0.25em] text-[#C19D60] font-bold">
+                                Verified Stay Review
+                            </span>
+                            <h4 className="text-2xl font-serif text-[#222] dark:text-white mt-1">
+                                {reviewBooking.room_id?.hotel_id?.name}
+                            </h4>
+                            <p className="text-xs text-[#777]">
+                                Phòng {reviewBooking.room_id?.room_number} ({reviewBooking.room_id?.type})
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] uppercase tracking-widest text-[#777] font-bold mb-2">
+                                Chấm sao chất lượng
+                            </label>
+                            <div className="flex items-center gap-2">
+                                {[1, 2, 3, 4, 5].map((st) => (
+                                    <button
+                                        key={st}
+                                        type="button"
+                                        onClick={() => setReviewRating(st)}
+                                        className={`text-2xl ${st <= reviewRating ? 'text-[#C19D60]' : 'text-gray-300 dark:text-gray-600'}`}
+                                    >
+                                        <HiStar />
+                                    </button>
+                                ))}
+                                <span className="ml-2 text-xs font-bold text-[#C19D60]">{reviewRating}/5 Sao</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] uppercase tracking-widest text-[#777] font-bold mb-2">
+                                Cảm nhận của Quý khách
+                            </label>
+                            <textarea
+                                rows={4}
+                                value={reviewComment}
+                                onChange={(e) => setReviewComment(e.target.value)}
+                                placeholder="Chia sẻ trải nghiệm về phòng nghỉ, tầm nhìn, ẩm thực và thái độ phục vụ..."
+                                className="w-full p-3.5 rounded-xl bg-[#FDFBF7] dark:bg-[#222] border border-[#EAE3D2] dark:border-white/10 text-xs text-[#222] dark:text-white outline-none focus:border-[#C19D60]"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setReviewBooking(null)}
+                                className="px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[#777] border border-[#EAE3D2] dark:border-white/10"
+                            >
+                                Đóng
+                            </button>
+                            <button
+                                disabled={isSubmittingReview}
+                                onClick={async () => {
+                                    if (!reviewComment.trim()) {
+                                        return toast.error('Vui lòng nhập nội dung đánh giá!');
+                                    }
+                                    setIsSubmittingReview(true);
+                                    try {
+                                        const hotelId = reviewBooking.room_id?.hotel_id?._id;
+                                        await axiosClient.post('/reviews', {
+                                            hotel_id: hotelId,
+                                            booking_id: reviewBooking._id,
+                                            customer_name: reviewBooking.customer_name,
+                                            room_name: `Phòng ${reviewBooking.room_id?.room_number} (${reviewBooking.room_id?.type})`,
+                                            rating: reviewRating,
+                                            comment: reviewComment
+                                        });
+                                        toast.success('Cảm ơn Quý khách đã gửi đánh giá kỳ nghỉ!');
+                                        setReviewBooking(null);
+                                    } catch (err: any) {
+                                        toast.error(err.response?.data?.message || 'Không thể gửi đánh giá');
+                                    } finally {
+                                        setIsSubmittingReview(false);
+                                    }
+                                }}
+                                className="flex-1 py-3 rounded-xl bg-[#C19D60] hover:bg-[#a68347] text-white text-xs font-bold uppercase tracking-widest transition-all"
+                            >
+                                {isSubmittingReview ? 'Đang gửi...' : 'Gửi Đánh Giá'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -45,7 +45,7 @@ exports.createBooking = async (req, res) => {
             { $inc: { held_count: -1, booked_count: 1 } }
         );
 
-        res.status(200).json({ success: true, message: 'Booking success!' });
+        res.status(200).json({ success: true, message: 'Booking success!', data: booking });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
     }
@@ -174,12 +174,48 @@ exports.lookupGuestBooking = async (req, res) => {
         const booking = await Booking.find({ phone_number: phoneNumber })
             .populate({
                 path: 'room_id',
-                select: 'room_number type price_per_night hotel_id',
+                select: 'room_number name type price_per_night hotel_id',
                 populate: { path: 'hotel_id', select: 'name location' }
             })
             .sort({ createdAt: -1 });
 
         return res.status(200).json({ success: true, message: "Tra cứu thành công", data: booking });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+exports.confirmVietQRPayment = async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy đơn đặt phòng' });
+        }
+
+        const previousStatus = booking.status;
+        if (previousStatus === 'PENDING') {
+            booking.status = 'CONFIRMED';
+            await booking.save();
+
+            if (booking.user_id) {
+                const pointsEarned = Math.floor(booking.total_price / 10000);
+                await CustomerProfile.findOneAndUpdate(
+                    { user_id: booking.user_id },
+                    {
+                        $inc: { reward_points: pointsEarned },
+                        $setOnInsert: { full_name: booking.customer_name || 'Khách hàng' }
+                    },
+                    { upsert: true }
+                );
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Thanh toán VietQR thành công! Đơn đặt phòng đã được xác nhận.',
+            data: booking
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }

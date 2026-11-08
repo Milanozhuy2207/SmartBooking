@@ -10,6 +10,8 @@ const authRoutes = require('./src/routes/authRoutes');
 const roomRoutes = require('./src/routes/roomRoutes');
 const bookingRoutes = require('./src/routes/bookingRoutes');
 const hotelRoutes = require('./src/routes/hotelRoutes');
+const reviewRoutes = require('./src/routes/reviewRoutes');
+const aiRoutes = require('./src/routes/aiRoutes');
 const RoomAvailability = require('./src/models/RoomAvailability');
 const Room = require('./src/models/Room');
 
@@ -29,6 +31,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/hotels', hotelRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/ai', aiRoutes);
 
 mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/smartbooking')
     .then(() => console.log('Connected to MongoDB successfully!'))
