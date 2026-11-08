@@ -18,6 +18,9 @@ interface Booking {
     customer_name: string;
     phone_number: string;
     total_price: number;
+    payment_type?: 'UNPAID' | 'DEPOSIT' | 'FULL';
+    paid_amount?: number;
+    remaining_amount?: number;
     status: string;
     check_in: string;
     check_out: string;
@@ -301,6 +304,21 @@ const MyBookingsPage = () => {
                                     <div>
                                         <p className="text-xs text-[#777] uppercase tracking-widest mb-1">Total Amount</p>
                                         <p className="text-2xl font-serif text-[#C19D60]">{b.total_price.toLocaleString('vi-VN')} đ</p>
+                                        {b.payment_type === 'DEPOSIT' && (
+                                            <div className="mt-1 space-y-0.5 text-[11px]">
+                                                <p className="text-amber-600 dark:text-amber-400 font-bold">
+                                                    • Đã cọc 30%: {(b.paid_amount || Math.round(b.total_price * 0.3)).toLocaleString('vi-VN')}đ
+                                                </p>
+                                                <p className="text-[#777] dark:text-gray-400">
+                                                    • Còn lại trả lúc Check-out: {(b.remaining_amount ?? Math.round(b.total_price * 0.7)).toLocaleString('vi-VN')}đ
+                                                </p>
+                                            </div>
+                                        )}
+                                        {b.payment_type === 'FULL' && (
+                                            <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                                ✓ Đã thanh toán đủ 100%
+                                            </p>
+                                        )}
                                     </div>
 
                                     {b.status === 'CONFIRMED' && (

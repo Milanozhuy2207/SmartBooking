@@ -61,6 +61,9 @@ interface Booking {
     customer_name: string;
     phone_number: string;
     total_price: number;
+    payment_type?: 'UNPAID' | 'DEPOSIT' | 'FULL';
+    paid_amount?: number;
+    remaining_amount?: number;
     status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED';
     check_in: string;
     check_out: string;
@@ -740,7 +743,17 @@ const AdminDashboard = () => {
                                                         </p>
                                                     </td>
                                                     <td className="p-4 font-bold text-[#C19D60]">
-                                                        {b.total_price?.toLocaleString('vi-VN')} đ
+                                                        <p>{b.total_price?.toLocaleString('vi-VN')} đ</p>
+                                                        {b.payment_type === 'DEPOSIT' && (
+                                                            <span className="text-[10px] font-semibold text-amber-500 block">
+                                                                Đã cọc 30% • Thiếu {(b.remaining_amount ?? Math.round((b.total_price || 0) * 0.7)).toLocaleString('vi-VN')}đ
+                                                            </span>
+                                                        )}
+                                                        {b.payment_type === 'FULL' && (
+                                                            <span className="text-[10px] font-semibold text-emerald-500 block">
+                                                                ✓ Đã TT 100%
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className="p-4">
                                                         {b.status === 'CONFIRMED' && (

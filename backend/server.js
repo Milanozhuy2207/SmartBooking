@@ -19,10 +19,24 @@ const app = express();
 const server = http.createServer(app);
 const holds = new Map();
 
+const corsOrigin = (origin, callback) => {
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:4173',
+        process.env.FRONTEND_URL
+    ].filter(Boolean);
+
+    if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+        callback(null, true);
+    } else {
+        callback(null, true);
+    }
+};
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: corsOrigin,
     credentials: true
 }));
 
@@ -39,7 +53,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/smartbookin
     .catch(err => console.error('Failed to connect to MongoDB:', err));
 
 const io = new Server(server, {
-    cors: { origin: 'http://localhost:5173', credentials: true }
+    cors: { origin: corsOrigin, credentials: true }
 });
 
 const releaseRoom = async (key) => {

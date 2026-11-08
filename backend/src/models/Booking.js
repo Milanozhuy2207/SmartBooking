@@ -6,11 +6,19 @@ const BookingSchema = new mongoose.Schema({
     customer_name: { type: String, required: true },
     phone_number: { type: String, required: true },
     total_price: { type: Number, required: true },
+    payment_type: {
+        type: String,
+        enum: ['UNPAID', 'DEPOSIT', 'FULL'],
+        default: 'UNPAID'
+    },
+    paid_amount: { type: Number, default: 0 },
+    remaining_amount: { type: Number, default: 0 },
     status: {
         type: String,
         enum: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'],
         default: 'PENDING'
-    }, check_in: { type: Date, required: true },
+    },
+    check_in: { type: Date, required: true },
     check_out: { type: Date, required: true },
 }, { timestamps: true });
 

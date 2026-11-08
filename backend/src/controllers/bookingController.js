@@ -27,12 +27,16 @@ exports.createBooking = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room is not available for these dates" });
         }
 
+        const totalPrice = room.price_per_night * nights;
         const booking = new Booking({
             room_id: roomId,
             user_id: req.userId || null,
             customer_name: customerName,
             phone_number: phoneNumber,
-            total_price: room.price_per_night * nights,
+            total_price: totalPrice,
+            payment_type: 'UNPAID',
+            paid_amount: 0,
+            remaining_amount: totalPrice,
             status: "PENDING",
             check_in: checkIn,
             check_out: checkOut,
@@ -108,6 +112,11 @@ exports.updateBookingStatus = async (req, res) => {
 
         const previousStatus = booking.status;
         booking.status = status;
+        if (status === 'CHECKED_OUT') {
+            booking.payment_type = 'FULL';
+            booking.paid_amount = booking.total_price;
+            booking.remaining_amount = 0;
+        }
         await booking.save();
 
         if (status === 'CANCELLED' && previousStatus !== 'CANCELLED' && booking.check_in && booking.check_out) {
@@ -188,16 +197,28 @@ exports.lookupGuestBooking = async (req, res) => {
 exports.confirmVietQRPayment = async (req, res) => {
     try {
         const bookingId = req.params.id;
+        const { paymentType } = req.body || {};
         const booking = await Booking.findById(bookingId);
         if (!booking) {
             return res.status(404).json({ success: false, message: 'Không tìm thấy đơn đặt phòng' });
         }
 
         const previousStatus = booking.status;
+        const isDeposit = paymentType === 'DEPOSIT';
+
+        if (isDeposit) {
+            const depositAmt = Math.round(booking.total_price * 0.3);
+            booking.payment_type = 'DEPOSIT';
+            booking.paid_amount = depositAmt;
+            booking.remaining_amount = Math.max(0, booking.total_price - depositAmt);
+        } else {
+            booking.payment_type = 'FULL';
+            booking.paid_amount = booking.total_price;
+            booking.remaining_amount = 0;
+        }
+
         if (previousStatus === 'PENDING') {
             booking.status = 'CONFIRMED';
-            await booking.save();
-
             if (booking.user_id) {
                 const pointsEarned = Math.floor(booking.total_price / 10000);
                 await CustomerProfile.findOneAndUpdate(
@@ -210,10 +231,13 @@ exports.confirmVietQRPayment = async (req, res) => {
                 );
             }
         }
+        await booking.save();
 
         return res.status(200).json({
             success: true,
-            message: 'Thanh toán VietQR thành công! Đơn đặt phòng đã được xác nhận.',
+            message: isDeposit
+                ? 'Đã nhận tiền cọc 30% thành công! Đơn đặt phòng đã được giữ chỗ & xác nhận.'
+                : 'Thanh toán 100% qua VietQR thành công! Đơn đặt phòng đã được xác nhận.',
             data: booking
         });
     } catch (error) {

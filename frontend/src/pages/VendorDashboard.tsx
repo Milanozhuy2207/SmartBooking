@@ -57,6 +57,9 @@ interface Booking {
     customer_name: string;
     phone_number: string;
     total_price: number;
+    payment_type?: 'UNPAID' | 'DEPOSIT' | 'FULL';
+    paid_amount?: number;
+    remaining_amount?: number;
     status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED';
     check_in: string;
     check_out: string;
@@ -713,9 +716,19 @@ const VendorDashboard = () => {
                                                     </td>
                                                     <td className="p-4">
                                                         <p className="font-bold text-[#C19D60]">{b.total_price?.toLocaleString('vi-VN')} đ</p>
-                                                        <p className="text-[11px] text-emerald-500 font-medium">
-                                                            Thực nhận: {Math.round((b.total_price || 0) * 0.85).toLocaleString('vi-VN')}đ
-                                                        </p>
+                                                        {b.payment_type === 'DEPOSIT' ? (
+                                                            <p className="text-[11px] text-amber-500 font-semibold">
+                                                                Đã cọc 30% • Cần thu: {(b.remaining_amount ?? Math.round((b.total_price || 0) * 0.7)).toLocaleString('vi-VN')}đ
+                                                            </p>
+                                                        ) : b.payment_type === 'FULL' ? (
+                                                            <p className="text-[11px] text-emerald-500 font-semibold">
+                                                                ✓ Đã TT 100% ({b.total_price?.toLocaleString('vi-VN')}đ)
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[11px] text-emerald-500 font-medium">
+                                                                Thực nhận: {Math.round((b.total_price || 0) * 0.85).toLocaleString('vi-VN')}đ
+                                                            </p>
+                                                        )}
                                                     </td>
                                                     <td className="p-4">
                                                         {b.status === 'CONFIRMED' && (
