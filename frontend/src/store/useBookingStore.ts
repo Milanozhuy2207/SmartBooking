@@ -5,8 +5,15 @@ import axiosClient from '../api/axiosClient';
 export interface Room {
     _id: string;
     room_number: string;
+    name?: string;
     type: 'STANDARD' | 'DELUXE' | 'VIP';
     price_per_night: number;
+    image_url?: string;
+    description?: string;
+    area?: string;
+    bed_type?: string;
+    max_guests?: number;
+    view?: string;
     is_locked: boolean;
     locked_by_user: string | null;
     locked_until: string | null;
@@ -55,13 +62,13 @@ export const useBookingStore = create<BookingStore>((set) => ({
     },
 
     fetchLocations: async () => {
-        set({ isLoading: true })
+        set({ isLoading: true });
         try {
-            const response = await axiosClient.get('/hotels/locations')
-            set({ locations: response.data.data, isLoading: false })
+            const response = await axiosClient.get('/hotels/locations');
+            set({ locations: response.data.data, isLoading: false });
         } catch (error) {
-            console.error('Error fetching locations:', error)
-            set({ isLoading: false })
+            console.error('Error fetching locations:', error);
+            set({ isLoading: false });
         }
     },
 

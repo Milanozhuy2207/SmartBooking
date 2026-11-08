@@ -1,182 +1,1049 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiLogOut, FiCheck, FiX, FiRefreshCcw, FiSun, FiMoon } from 'react-icons/fi';
+import {
+    FiLogOut,
+    FiCheck,
+    FiX,
+    FiRefreshCcw,
+    FiSun,
+    FiMoon,
+    FiHome,
+    FiGrid,
+    FiCalendar,
+    FiUsers,
+    FiDollarSign,
+    FiTrendingUp,
+    FiSearch,
+    FiPlus,
+    FiMapPin,
+    FiStar,
+    FiKey,
+    FiExternalLink,
+    FiClock,
+    FiCheckCircle,
+    FiXCircle,
+    FiShield,
+    FiAward,
+    FiLayers
+} from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from '../api/axiosClient';
 
+interface Room {
+    _id: string;
+    room_number: string;
+    type: 'STANDARD' | 'DELUXE' | 'VIP';
+    price_per_night: number;
+}
+
+interface Hotel {
+    _id: string;
+    name: string;
+    location: string;
+    star_rating: number;
+    description: string;
+    image_url: string;
+    vendor_id?: string;
+    rooms?: Room[];
+}
+
 interface Booking {
     _id: string;
-    room_id: { _id: string; room_number: string; type: string };
-    user_id: { _id: string; name: string; email: string };
+    room_id: {
+        _id: string;
+        room_number: string;
+        type: string;
+        price_per_night?: number;
+        hotel_id?: { _id?: string; name: string; location: string };
+    };
+    user_id?: { _id: string; email: string; phone_number?: string };
     customer_name: string;
     phone_number: string;
     total_price: number;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    status: 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED';
     check_in: string;
     check_out: string;
     createdAt: string;
 }
 
+interface SystemUser {
+    _id: string;
+    email: string;
+    phone_number: string;
+    role: 'CUSTOMER' | 'VENDOR' | 'RECEPTIONIST' | 'ADMIN';
+    status: 'PENDING' | 'ACTIVE' | 'BANNED';
+    full_name: string;
+    reward_points: number;
+    createdAt: string;
+}
+
 const AdminDashboard = () => {
+    const [activeSection, setActiveSection] = useState<'overview' | 'bookings' | 'hotels' | 'users'>('overview');
     const [bookings, setBookings] = useState<Booking[]>([]);
+    const [hotels, setHotels] = useState<Hotel[]>([]);
+    const [users, setUsers] = useState<SystemUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+
+    // Filters
+    const [bookingStatusFilter, setBookingStatusFilter] = useState<'ALL' | 'PENDING' | 'CONFIRMED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'CANCELLED'>('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Hotel & Room Modals
+    const [showHotelModal, setShowHotelModal] = useState(false);
+    const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+    const [hotelRooms, setHotelRooms] = useState<Room[]>([]);
+    const [hotelForm, setHotelForm] = useState({
+        name: '',
+        location: '',
+        star_rating: 5,
+        description: '',
+        image_url: ''
+    });
+    const [roomForm, setRoomForm] = useState({
+        room_number: '',
+        type: 'STANDARD',
+        price_per_night: 500000
+    });
+
+    const currentUser = (() => {
+        const u = localStorage.getItem('user');
+        try {
+            return u && u !== 'undefined' ? JSON.parse(u) : null;
+        } catch {
+            return null;
+        }
+    })();
+
     const navigate = useNavigate();
 
-    const fetchAllBookings = async () => {
+    const fetchAllAdminData = async () => {
         setIsLoading(true);
         try {
-            // NOTE: The backend API must be implemented by the user
-            const response = await axiosClient.get('/bookings/all');
-            setBookings(response.data.data);
+            const [bookingsRes, hotelsRes, usersRes] = await Promise.all([
+                axiosClient.get('/bookings/all'),
+                axiosClient.get('/hotels/my-hotels'),
+                axiosClient.get('/auth/users')
+            ]);
+            setBookings(bookingsRes.data.data || []);
+            setHotels(hotelsRes.data.data || []);
+            setUsers(usersRes.data.data || []);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Error fetching bookings');
+            toast.error(error.response?.data?.message || 'Lỗi tải dữ liệu hệ thống');
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchAllBookings();
+        fetchAllAdminData();
     }, []);
 
     useEffect(() => {
         if (isDarkMode) {
             document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
         } else {
             document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
         }
     }, [isDarkMode]);
 
-    const handleUpdateStatus = async (bookingId: string, status: string) => {
+    const handleLogout = async () => {
+        try {
+            await axiosClient.post('/auth/logout');
+        } catch {
+            // ignore
+        }
+        localStorage.removeItem('user');
+        navigate('/login');
+    };
+
+    const handleUpdateBookingStatus = async (bookingId: string, status: string) => {
         try {
             await axiosClient.put(`/bookings/${bookingId}/status`, { status });
-            toast.success(`Booking marked as ${status}`);
-            fetchAllBookings(); // Refresh the list
+            toast.success(`Đã cập nhật đơn #${bookingId.slice(-6).toUpperCase()} sang ${status}`);
+            fetchAllAdminData();
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Failed to update status');
+            toast.error(error.response?.data?.message || 'Không thể cập nhật trạng thái');
         }
     };
 
+    const handleCreateHotel = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            await axiosClient.post('/hotels', hotelForm);
+            toast.success('Đã thêm khách sạn mới vào hệ thống!');
+            setShowHotelModal(false);
+            setHotelForm({ name: '', location: '', star_rating: 5, description: '', image_url: '' });
+            fetchAllAdminData();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Lỗi khi tạo khách sạn');
+        }
+    };
+
+    const handleOpenManageRooms = async (hotel: Hotel) => {
+        setSelectedHotel(hotel);
+        try {
+            const res = await axiosClient.get(`/hotels/${hotel._id}/rooms`);
+            setHotelRooms(res.data.data || []);
+        } catch {
+            toast.error('Không thể tải danh sách phòng');
+        }
+    };
+
+    const handleCreateRoom = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedHotel) return;
+        try {
+            await axiosClient.post(`/hotels/${selectedHotel._id}/rooms`, roomForm);
+            toast.success('Đã tạo phòng mới & mở lịch 30 ngày!');
+            setRoomForm({ room_number: '', type: 'STANDARD', price_per_night: 500000 });
+            handleOpenManageRooms(selectedHotel);
+            fetchAllAdminData();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Lỗi khi thêm phòng');
+        }
+    };
+
+    const handleUpdateUserRoleStatus = async (userId: string, payload: { role?: string; status?: string }) => {
+        try {
+            await axiosClient.put(`/auth/users/${userId}`, payload);
+            toast.success('Đã cập nhật thông tin tài khoản!');
+            fetchAllAdminData();
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Lỗi cập nhật tài khoản');
+        }
+    };
+
+    // Metrics Calculation
+    const isRevenueStatus = (st: string) => st === 'CONFIRMED' || st === 'CHECKED_IN' || st === 'CHECKED_OUT';
+    const confirmedBookings = bookings.filter(b => isRevenueStatus(b.status));
+    const checkedInBookings = bookings.filter(b => b.status === 'CHECKED_IN');
+    const checkedOutBookings = bookings.filter(b => b.status === 'CHECKED_OUT');
+    const pendingBookings = bookings.filter(b => b.status === 'PENDING');
+    const cancelledBookings = bookings.filter(b => b.status === 'CANCELLED');
+    const totalGMV = confirmedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0);
+    const platformCommission = Math.round(totalGMV * 0.15); // 15% OTA Commission
+    const totalRoomsCount = hotels.reduce((sum, h) => sum + (h.rooms?.length || 0), 0);
+
+    // Filtered Bookings
+    const filteredBookings = bookings.filter(b => {
+        const matchesStatus = bookingStatusFilter === 'ALL' || b.status === bookingStatusFilter;
+        const q = searchQuery.toLowerCase().trim();
+        const matchesQuery =
+            !q ||
+            b._id.toLowerCase().includes(q) ||
+            b.customer_name?.toLowerCase().includes(q) ||
+            b.phone_number?.toLowerCase().includes(q) ||
+            b.room_id?.room_number?.toLowerCase().includes(q) ||
+            b.room_id?.hotel_id?.name?.toLowerCase().includes(q);
+        return matchesStatus && matchesQuery;
+    });
+
+    // Revenue per Hotel for Overview Chart
+    const hotelRevenueStats = hotels.map(hotel => {
+        const hotelBookings = bookings.filter(
+            b => b.room_id?.hotel_id?.name === hotel.name && isRevenueStatus(b.status)
+        );
+        const revenue = hotelBookings.reduce((s, b) => s + (b.total_price || 0), 0);
+        return {
+            ...hotel,
+            confirmedCount: hotelBookings.length,
+            revenue
+        };
+    }).sort((a, b) => b.revenue - a.revenue);
+
     return (
-        <div className="min-h-screen bg-[#FDFBF7] dark:bg-[#111] transition-colors duration-500 font-sans text-[#222] dark:text-gray-100">
+        <div className="h-screen overflow-hidden flex bg-[#F4F6F9] dark:bg-[#0d0e11] text-[#1e293b] dark:text-gray-100 font-sans transition-colors duration-300">
             <Toaster position="top-right" />
 
-            {/* Dark Mode Toggle */}
-            <button 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="fixed bottom-8 right-8 z-50 bg-white dark:bg-[#222] p-4 rounded-full shadow-2xl border border-gray-200 dark:border-white/10 text-xl hover:scale-110 transition-all duration-300 group"
-            >
-                {isDarkMode ? <FiSun className="text-yellow-500 group-hover:rotate-90 transition-transform duration-500" /> : <FiMoon className="text-[#222] group-hover:-rotate-12 transition-transform duration-500" />}
-            </button>
-
-            {/* HEADER */}
-            <header className="bg-white dark:bg-[#1a1a1a] shadow-md border-b border-[#EAE3D2] dark:border-white/10 sticky top-0 z-40">
-                <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[#C19D60] text-3xl font-black">S</span>
+            {/* ================= SIDEBAR TRÁI (COMMAND CENTER) ================= */}
+            <aside className="w-68 bg-[#111317] text-gray-300 flex flex-col justify-between border-r border-white/10 shrink-0 select-none">
+                <div>
+                    {/* Brand Logo */}
+                    <div className="h-20 px-6 flex items-center gap-3 border-b border-white/10">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#C19D60] to-[#8f6f38] flex items-center justify-center text-white font-serif font-black text-xl shadow-lg shadow-[#C19D60]/25">
+                            S
+                        </div>
                         <div>
-                            <h1 className="font-serif tracking-widest font-bold leading-tight text-lg">MARTBOOKING</h1>
-                            <p className="text-[9px] tracking-[0.3em] font-bold text-[#777] uppercase">Admin Portal</p>
+                            <h1 className="font-serif tracking-widest text-white font-bold text-base leading-none">
+                                SMARTBOOKING
+                            </h1>
+                            <span className="text-[10px] uppercase tracking-[0.25em] text-[#C19D60] font-bold block mt-1">
+                                System Admin
+                            </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                        <button onClick={() => navigate('/admin/hotels')} className="flex items-center gap-2 text-[#777] hover:text-[#C19D60] transition-colors text-xs font-bold uppercase tracking-widest">
-                            Manage Hotels
+
+                    {/* Menu Navigation */}
+                    <div className="p-4 space-y-1.5">
+                        <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                             Quản trị trung tâm
+                        </p>
+
+                        <button
+                            onClick={() => setActiveSection('overview')}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all ${
+                                activeSection === 'overview'
+                                    ? 'bg-[#C19D60] text-white shadow-lg shadow-[#C19D60]/25'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <FiGrid className="text-base" /> Tổng quan & Doanh thu
+                            </span>
                         </button>
-                        <button onClick={fetchAllBookings} className="text-[#777] hover:text-[#C19D60] transition-colors" title="Refresh">
-                            <FiRefreshCcw className="text-xl" />
+
+                        <button
+                            onClick={() => setActiveSection('bookings')}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all ${
+                                activeSection === 'bookings'
+                                    ? 'bg-[#C19D60] text-white shadow-lg shadow-[#C19D60]/25'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <FiCalendar className="text-base" /> Quản lý Đặt phòng
+                            </span>
+                            {pendingBookings.length > 0 && (
+                                <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+                                    activeSection === 'bookings' ? 'bg-black/30 text-white' : 'bg-amber-500/20 text-amber-400'
+                                }`}>
+                                    {pendingBookings.length}
+                                </span>
+                            )}
                         </button>
-                        <button onClick={() => { localStorage.removeItem('user'); navigate('/login'); }} className="flex items-center gap-2 text-red-500 hover:text-red-700 transition-colors text-xs font-bold uppercase tracking-widest">
-                            <FiLogOut className="text-lg" /> Logout
+
+                        <button
+                            onClick={() => setActiveSection('hotels')}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all ${
+                                activeSection === 'hotels'
+                                    ? 'bg-[#C19D60] text-white shadow-lg shadow-[#C19D60]/25'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <FiHome className="text-base" /> Khách sạn & Quỹ phòng
+                            </span>
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+                                activeSection === 'hotels' ? 'bg-black/30 text-white' : 'bg-white/10 text-gray-300'
+                            }`}>
+                                {hotels.length}
+                            </span>
+                        </button>
+
+                        <button
+                            onClick={() => setActiveSection('users')}
+                            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all ${
+                                activeSection === 'users'
+                                    ? 'bg-[#C19D60] text-white shadow-lg shadow-[#C19D60]/25'
+                                    : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                            }`}
+                        >
+                            <span className="flex items-center gap-3">
+                                <FiUsers className="text-base" /> Tài khoản & Đối tác
+                            </span>
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+                                activeSection === 'users' ? 'bg-black/30 text-white' : 'bg-white/10 text-gray-300'
+                            }`}>
+                                {users.length}
+                            </span>
                         </button>
                     </div>
                 </div>
-            </header>
 
-            <main className="max-w-7xl mx-auto px-6 py-12">
-                <div className="mb-10">
-                    <h2 className="text-3xl font-serif mb-2">Reservation Management</h2>
-                    <p className="text-[#777] text-sm">Overview of all hotel bookings, statuses, and revenue.</p>
+                {/* Bottom User Profile & Quick Links */}
+                <div className="p-4 border-t border-white/10 space-y-3">
+                    <div className="p-3 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#C19D60]/20 border border-[#C19D60] flex items-center justify-center text-[#C19D60] font-bold">
+                            <FiShield />
+                        </div>
+                        <div className="overflow-hidden">
+                            <p className="text-xs font-bold text-white truncate">{currentUser?.full_name || 'Super Admin'}</p>
+                            <p className="text-[11px] text-gray-400 truncate">{currentUser?.email || 'admin@smartbooking.com'}</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => navigate('/home')}
+                            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-bold transition-colors"
+                        >
+                            <FiExternalLink /> Trang chủ
+                        </button>
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-[11px] font-bold transition-colors"
+                        >
+                            <FiLogOut /> Đăng xuất
+                        </button>
+                    </div>
                 </div>
+            </aside>
 
-                <div className="bg-white dark:bg-[#1a1a1a] shadow-xl border border-[#EAE3D2] dark:border-[#333] overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-[#f9f8f5] dark:bg-[#222] border-b border-[#EAE3D2] dark:border-[#333]">
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Booking ID</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Guest</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Room</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Dates</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Revenue</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold">Status</th>
-                                    <th className="p-4 text-xs uppercase tracking-widest text-[#777] font-bold text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {isLoading ? (
-                                    <tr>
-                                        <td colSpan={7} className="p-8 text-center text-[#777] animate-pulse">Loading records...</td>
-                                    </tr>
-                                ) : bookings.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={7} className="p-8 text-center text-[#777]">No bookings found in the system.</td>
-                                    </tr>
-                                ) : (
-                                    bookings.map((b) => (
-                                        <tr key={b._id} className="border-b border-[#EAE3D2] dark:border-[#333] hover:bg-[#FDFBF7] dark:hover:bg-[#111] transition-colors">
-                                            <td className="p-4 font-mono text-xs text-[#999]">{b._id.slice(-6).toUpperCase()}</td>
-                                            <td className="p-4">
-                                                <p className="font-bold text-sm">{b.customer_name}</p>
-                                                <p className="text-xs text-[#777]">{b.phone_number}</p>
-                                            </td>
-                                            <td className="p-4">
-                                                <p className="font-bold text-[#C19D60]">Room {b.room_id?.room_number}</p>
-                                                <p className="text-[10px] uppercase tracking-widest bg-[#EAE3D2] dark:bg-[#333] inline-block px-1 mt-1 rounded text-[#555] dark:text-[#aaa]">{b.room_id?.type}</p>
-                                            </td>
-                                            <td className="p-4">
-                                                <p className="text-xs">{b.check_in ? new Date(b.check_in).toLocaleDateString('vi-VN') : 'N/A'}</p>
-                                                <p className="text-xs text-[#777]">to {b.check_out ? new Date(b.check_out).toLocaleDateString('vi-VN') : 'N/A'}</p>
-                                            </td>
-                                            <td className="p-4 font-serif text-[#C19D60] font-bold">
-                                                {b.total_price?.toLocaleString('vi-VN')} đ
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-1 rounded ${
-                                                    b.status === 'CONFIRMED' ? 'bg-green-100 text-green-700' :
-                                                    b.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
-                                                    'bg-yellow-100 text-yellow-700'
-                                                }`}>
-                                                    {b.status}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {b.status === 'PENDING' && (
+            {/* ================= KHU VỰC NỘI DUNG CHÍNH ================= */}
+            <div className="flex-1 flex flex-col h-screen overflow-hidden">
+                {/* TOP HEADER BAR */}
+                <header className="h-20 bg-white dark:bg-[#16191f] border-b border-gray-200 dark:border-white/10 px-8 flex items-center justify-between shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                            {activeSection === 'overview' && 'Tổng quan Hệ thống & Doanh thu'}
+                            {activeSection === 'bookings' && 'Quản lý Đặt phòng (Reservations)'}
+                            {activeSection === 'hotels' && 'Danh mục Khách sạn & Quỹ phòng'}
+                            {activeSection === 'users' && 'Quản lý Người dùng & Đối tác (Users & Vendors)'}
+                        </h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Hệ thống quản trị điều hành trung tâm SmartBooking OTA
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        {/* Search Box */}
+                        <div className="relative hidden md:block w-72">
+                            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    if (activeSection === 'overview' && e.target.value) {
+                                        setActiveSection('bookings');
+                                    }
+                                }}
+                                placeholder="Tìm tên khách, SĐT, mã đơn, phòng..."
+                                className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-100 dark:bg-[#22262f] border border-transparent focus:border-[#C19D60] text-xs outline-none transition-colors"
+                            />
+                        </div>
+
+                        {pendingBookings.length > 0 && (
+                            <button
+                                onClick={() => {
+                                    setActiveSection('bookings');
+                                    setBookingStatusFilter('PENDING');
+                                }}
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors"
+                            >
+                                <FiClock /> {pendingBookings.length} đơn chờ duyệt
+                            </button>
+                        )}
+
+                        <button
+                            onClick={fetchAllAdminData}
+                            className="p-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-gray-600 dark:text-gray-300 hover:text-[#C19D60] transition-colors"
+                            title="Làm mới dữ liệu"
+                        >
+                            <FiRefreshCcw className={isLoading ? 'animate-spin' : ''} />
+                        </button>
+
+                        <button
+                            onClick={() => setIsDarkMode(!isDarkMode)}
+                            className="p-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-gray-600 dark:text-gray-300 hover:text-[#C19D60] transition-colors"
+                            title="Đổi giao diện Sáng/Tối"
+                        >
+                            {isDarkMode ? <FiSun className="text-yellow-400" /> : <FiMoon />}
+                        </button>
+                    </div>
+                </header>
+
+                {/* WORKSPACE SCROLLABLE CONTENT */}
+                <main className="flex-1 overflow-y-auto p-8 space-y-8">
+                    {/* ==================== TAB 1: OVERVIEW & ANALYTICS ==================== */}
+                    {activeSection === 'overview' && (
+                        <>
+                            {/* 4 KPI CARDS */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+                                <div className="bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Tổng doanh thu (GMV)
+                                        </span>
+                                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-lg">
+                                            <FiDollarSign />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        {totalGMV.toLocaleString('vi-VN')} đ
+                                    </p>
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1 font-medium">
+                                        <FiCheckCircle /> Từ {confirmedBookings.length} đơn đã xác nhận
+                                    </p>
+                                </div>
+
+                                <div className="bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Hoa hồng sàn OTA (15%)
+                                        </span>
+                                        <div className="w-10 h-10 rounded-xl bg-[#C19D60]/15 text-[#C19D60] flex items-center justify-center text-lg">
+                                            <FiTrendingUp />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold text-[#C19D60]">
+                                        {platformCommission.toLocaleString('vi-VN')} đ
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                        Chiết khấu đối tác 85% ({(totalGMV - platformCommission).toLocaleString('vi-VN')}đ)
+                                    </p>
+                                </div>
+
+                                <div className="bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Tổng đơn đặt phòng
+                                        </span>
+                                        <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-lg">
+                                            <FiCalendar />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        {bookings.length} đơn
+                                    </p>
+                                    <div className="flex items-center gap-3 mt-2 text-xs font-semibold">
+                                        <span className="text-amber-500">{pendingBookings.length} chờ duyệt</span>
+                                        <span>•</span>
+                                        <span className="text-emerald-500">{confirmedBookings.length} thành công</span>
+                                        <span>•</span>
+                                        <span className="text-red-500">{cancelledBookings.length} đã hủy</span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Quy mô Hệ sinh thái
+                                        </span>
+                                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center text-lg">
+                                            <FiLayers />
+                                        </div>
+                                    </div>
+                                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                                        {hotels.length} Khách sạn • {totalRoomsCount} Phòng
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                        {users.filter(u => u.role === 'CUSTOMER').length} Khách hàng • {users.filter(u => u.role === 'VENDOR').length} Đối tác Vendor
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* 2-COLUMN DASHBOARD PANELS */}
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                {/* BẢNG TRÁI: HIỆU SUẤT DOANH THU THEO KHÁCH SẠN */}
+                                <div className="lg:col-span-6 bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div>
+                                            <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                                                Hiệu suất Doanh thu theo Khách sạn
+                                            </h3>
+                                            <p className="text-xs text-gray-500">Thống kê từ các đơn đặt phòng đã xác nhận</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setActiveSection('hotels')}
+                                            className="text-xs font-bold text-[#C19D60] hover:underline"
+                                        >
+                                            Quản lý khách sạn →
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-5">
+                                        {hotelRevenueStats.map((h) => {
+                                            const percent = totalGMV > 0 ? Math.round((h.revenue / totalGMV) * 100) : 0;
+                                            return (
+                                                <div key={h._id} className="space-y-2">
+                                                    <div className="flex justify-between items-center text-sm">
+                                                        <div>
+                                                            <span className="font-bold text-gray-900 dark:text-white">{h.name}</span>
+                                                            <span className="ml-2 text-xs text-gray-500">({h.location})</span>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="font-bold text-[#C19D60]">{h.revenue.toLocaleString('vi-VN')} đ</span>
+                                                            <span className="ml-2 text-xs text-gray-400">({h.confirmedCount} đơn)</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-[#C19D60] to-[#dfc088] rounded-full transition-all duration-500"
+                                                            style={{ width: `${Math.max(percent, h.revenue > 0 ? 8 : 0)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* BẢNG PHẢI: ĐƠN ĐẶT PHÒNG CẦN XỬ LÝ NGAY */}
+                                <div className="lg:col-span-6 bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-center justify-between mb-6">
+                                            <div>
+                                                <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                                                    Đơn đặt phòng chờ duyệt ({pendingBookings.length})
+                                                </h3>
+                                                <p className="text-xs text-gray-500">Duyệt nhanh để cộng điểm thưởng cho khách</p>
+                                            </div>
+                                            <button
+                                                onClick={() => setActiveSection('bookings')}
+                                                className="text-xs font-bold text-[#C19D60] hover:underline"
+                                            >
+                                                Xem tất cả ({bookings.length}) →
+                                            </button>
+                                        </div>
+
+                                        {pendingBookings.length === 0 ? (
+                                            <div className="py-12 text-center text-gray-400 text-sm">
+                                                <FiCheckCircle className="text-3xl text-emerald-500 mx-auto mb-2" />
+                                                Tuyệt vời! Toàn bộ đơn đặt phòng đều đã được xử lý.
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {pendingBookings.slice(0, 4).map(b => (
+                                                    <div key={b._id} className="p-4 rounded-xl bg-gray-50 dark:bg-[#1e222b] border border-gray-200/60 dark:border-white/5 flex items-center justify-between gap-4">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-sm text-gray-900 dark:text-white">{b.customer_name}</span>
+                                                                <span className="text-xs text-gray-500">• {b.phone_number}</span>
+                                                            </div>
+                                                            <p className="text-xs text-[#C19D60] font-semibold mt-0.5">
+                                                                {b.room_id?.hotel_id?.name || 'Khách sạn'} — Phòng {b.room_id?.room_number || 'N/A'} ({b.total_price?.toLocaleString('vi-VN')}đ)
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <button
+                                                                onClick={() => handleUpdateBookingStatus(b._id, 'CONFIRMED')}
+                                                                className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                                                            >
+                                                                <FiCheck /> Duyệt
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleUpdateBookingStatus(b._id, 'CANCELLED')}
+                                                                className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                                                            >
+                                                                <FiX /> Hủy
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ==================== TAB 2: QUẢN LÝ ĐẶT PHÒNG (RESERVATIONS) ==================== */}
+                    {activeSection === 'bookings' && (
+                        <div className="bg-white dark:bg-[#16191f] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+                            {/* Filter Bar */}
+                            <div className="p-6 border-b border-gray-200 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['ALL', 'PENDING', 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED'] as const).map(st => (
+                                        <button
+                                            key={st}
+                                            onClick={() => setBookingStatusFilter(st)}
+                                            className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                                                bookingStatusFilter === st
+                                                    ? 'bg-[#C19D60] text-white shadow-sm'
+                                                    : 'bg-gray-100 dark:bg-[#22262f] text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                                            }`}
+                                        >
+                                            {st === 'ALL' && `Tất cả (${bookings.length})`}
+                                            {st === 'PENDING' && `Chờ duyệt (${pendingBookings.length})`}
+                                            {st === 'CONFIRMED' && `Đã duyệt (${bookings.filter(b => b.status === 'CONFIRMED').length})`}
+                                            {st === 'CHECKED_IN' && `Đang ở (${checkedInBookings.length})`}
+                                            {st === 'CHECKED_OUT' && `Đã trả phòng (${checkedOutBookings.length})`}
+                                            {st === 'CANCELLED' && `Đã hủy (${cancelledBookings.length})`}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="relative w-full sm:w-72">
+                                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={e => setSearchQuery(e.target.value)}
+                                        placeholder="Lọc theo tên khách, SĐT, phòng..."
+                                        className="w-full pl-10 pr-4 py-2 rounded-xl bg-gray-100 dark:bg-[#22262f] text-xs outline-none border border-transparent focus:border-[#C19D60]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-[#1c2029] border-b border-gray-200 dark:border-white/10 text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+                                            <th className="p-4">Mã Đơn</th>
+                                            <th className="p-4">Khách Hàng</th>
+                                            <th className="p-4">Khách Sạn & Phòng</th>
+                                            <th className="p-4">Nhận / Trả Phòng</th>
+                                            <th className="p-4">Tổng Tiền</th>
+                                            <th className="p-4">Trạng Thái</th>
+                                            <th className="p-4 text-center">Thao Tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200/70 dark:divide-white/5 text-sm">
+                                        {filteredBookings.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={7} className="p-12 text-center text-gray-400">
+                                                    Không tìm thấy đơn đặt phòng nào khớp với bộ lọc.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredBookings.map((b) => (
+                                                <tr key={b._id} className="hover:bg-gray-50/80 dark:hover:bg-white/[0.02] transition-colors">
+                                                    <td className="p-4 font-mono text-xs font-bold text-gray-500">
+                                                        #{b._id.slice(-6).toUpperCase()}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <p className="font-bold text-gray-900 dark:text-white">{b.customer_name}</p>
+                                                        <p className="text-xs text-gray-500">{b.phone_number}</p>
+                                                        {b.user_id?.email && (
+                                                            <span className="inline-block mt-0.5 text-[10px] text-[#C19D60] font-semibold">
+                                                                TV: {b.user_id.email}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <p className="font-semibold text-gray-800 dark:text-gray-200">
+                                                            {b.room_id?.hotel_id?.name || 'Khách sạn hệ thống'}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-1">
+                                                            <span className="text-xs font-bold text-[#C19D60]">
+                                                                Phòng {b.room_id?.room_number || 'N/A'}
+                                                            </span>
+                                                            <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-bold uppercase">
+                                                                {b.room_id?.type || 'STANDARD'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-xs">
+                                                        <p className="font-semibold text-gray-800 dark:text-gray-200">
+                                                            In: {b.check_in ? new Date(b.check_in).toLocaleDateString('vi-VN') : 'N/A'}
+                                                        </p>
+                                                        <p className="text-gray-500 mt-0.5">
+                                                            Out: {b.check_out ? new Date(b.check_out).toLocaleDateString('vi-VN') : 'N/A'}
+                                                        </p>
+                                                    </td>
+                                                    <td className="p-4 font-bold text-[#C19D60]">
+                                                        {b.total_price?.toLocaleString('vi-VN')} đ
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {b.status === 'CONFIRMED' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                                                <FiCheckCircle /> CONFIRMED
+                                                            </span>
+                                                        )}
+                                                        {b.status === 'CHECKED_IN' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                                                <FiKey /> CHECKED IN
+                                                            </span>
+                                                        )}
+                                                        {b.status === 'CHECKED_OUT' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                                                                <FiCheckCircle /> CHECKED OUT
+                                                            </span>
+                                                        )}
+                                                        {b.status === 'PENDING' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                                                <FiClock /> PENDING
+                                                            </span>
+                                                        )}
+                                                        {b.status === 'CANCELLED' && (
+                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-500/10 text-red-500">
+                                                                <FiXCircle /> CANCELLED
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        {b.status === 'PENDING' && (
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button
+                                                                    onClick={() => handleUpdateBookingStatus(b._id, 'CONFIRMED')}
+                                                                    className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                                                                >
+                                                                    <FiCheck /> Duyệt
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleUpdateBookingStatus(b._id, 'CANCELLED')}
+                                                                    className="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                                                                >
+                                                                    <FiX /> Hủy
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                        {b.status === 'CONFIRMED' && (
+                                                            <button
+                                                                onClick={() => handleUpdateBookingStatus(b._id, 'CHECKED_IN')}
+                                                                className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                                                            >
+                                                                <FiKey /> Nhận phòng (Check-in)
+                                                            </button>
+                                                        )}
+                                                        {b.status === 'CHECKED_IN' && (
+                                                            <button
+                                                                onClick={() => handleUpdateBookingStatus(b._id, 'CHECKED_OUT')}
+                                                                className="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors shadow-sm"
+                                                            >
+                                                                <FiCheckCircle /> Trả phòng (Check-out)
+                                                            </button>
+                                                        )}
+                                                        {(b.status === 'CHECKED_OUT' || b.status === 'CANCELLED') && (
+                                                            <span className="text-xs text-gray-400 italic">Hoàn tất</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==================== TAB 3: QUẢN LÝ KHÁCH SẠN & PHÒNG ==================== */}
+                    {activeSection === 'hotels' && (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center bg-white dark:bg-[#16191f] p-6 rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm">
+                                <div>
+                                    <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                                        Toàn bộ Khách sạn trên hệ thống ({hotels.length})
+                                    </h3>
+                                    <p className="text-xs text-gray-500">Thêm khách sạn mới hoặc cấu hình danh sách phòng & lịch trống 30 ngày</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowHotelModal(true)}
+                                    className="px-5 py-2.5 rounded-xl bg-[#C19D60] hover:bg-[#a9864c] text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#C19D60]/20 transition-all"
+                                >
+                                    <FiPlus className="text-base" /> Thêm Khách Sạn Mới
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                {hotels.map((hotel) => (
+                                    <div key={hotel._id} className="bg-white dark:bg-[#16191f] rounded-2xl border border-gray-200/80 dark:border-white/10 overflow-hidden shadow-sm hover:shadow-xl transition-all flex flex-col">
+                                        <div className="h-48 relative bg-gray-900 overflow-hidden">
+                                            <img src={hotel.image_url} alt={hotel.name} className="w-full h-full object-cover" />
+                                            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                                                <FiStar className="text-[#C19D60]" /> {hotel.star_rating}
+                                            </div>
+                                            <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5">
+                                                <FiKey className="text-[#C19D60]" /> {hotel.rooms?.length || 0} phòng
+                                            </div>
+                                        </div>
+                                        <div className="p-6 flex-1 flex flex-col justify-between">
+                                            <div>
+                                                <h4 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{hotel.name}</h4>
+                                                <p className="text-xs text-gray-500 flex items-center gap-1.5 mb-4">
+                                                    <FiMapPin className="text-[#C19D60]" /> {hotel.location}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleOpenManageRooms(hotel)}
+                                                className="w-full py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-[#C19D60] dark:hover:bg-[#C19D60] dark:hover:text-white text-xs font-bold uppercase tracking-wider transition-colors"
+                                            >
+                                                Quản lý Danh sách Phòng ({hotel.rooms?.length || 0})
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==================== TAB 4: QUẢN LÝ TÀI KHOẢN & ĐỐI TÁC ==================== */}
+                    {activeSection === 'users' && (
+                        <div className="bg-white dark:bg-[#16191f] rounded-2xl border border-gray-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-gray-200 dark:border-white/10 flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold text-base text-gray-900 dark:text-white">
+                                        Danh sách Tài khoản & Phân quyền ({users.length})
+                                    </h3>
+                                    <p className="text-xs text-gray-500">Quản lý Khách hàng thành viên, Đối tác Chủ khách sạn (Vendor) và Admin</p>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-[#1c2029] border-b border-gray-200 dark:border-white/10 text-[11px] uppercase tracking-wider text-gray-500 font-bold">
+                                            <th className="p-4">Họ Tên / Email</th>
+                                            <th className="p-4">Số Điện Thoại</th>
+                                            <th className="p-4">Điểm Thưởng</th>
+                                            <th className="p-4">Vai Trò (Role)</th>
+                                            <th className="p-4">Trạng Thái</th>
+                                            <th className="p-4 text-center">Phân Quyền Nhanh</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200/70 dark:divide-white/5 text-sm">
+                                        {users.map((u) => (
+                                            <tr key={u._id} className="hover:bg-gray-50/80 dark:hover:bg-white/[0.02]">
+                                                <td className="p-4">
+                                                    <p className="font-bold text-gray-900 dark:text-white">{u.full_name}</p>
+                                                    <p className="text-xs text-gray-500">{u.email}</p>
+                                                </td>
+                                                <td className="p-4 text-xs font-medium">{u.phone_number}</td>
+                                                <td className="p-4">
+                                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-[#C19D60]">
+                                                        <FiAward /> {u.reward_points?.toLocaleString('vi-VN') || 0} pts
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                                        u.role === 'ADMIN'
+                                                            ? 'bg-purple-500/15 text-purple-500'
+                                                            : u.role === 'VENDOR'
+                                                            ? 'bg-[#C19D60]/20 text-[#C19D60]'
+                                                            : 'bg-blue-500/10 text-blue-500'
+                                                    }`}>
+                                                        {u.role}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                                                        u.status === 'ACTIVE'
+                                                            ? 'bg-emerald-500/10 text-emerald-500'
+                                                            : 'bg-red-500/10 text-red-500'
+                                                    }`}>
+                                                        {u.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-center">
                                                     <div className="flex items-center justify-center gap-2">
-                                                        <button 
-                                                            onClick={() => handleUpdateStatus(b._id, 'CONFIRMED')}
-                                                            className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full transition-colors" title="Approve"
+                                                        <select
+                                                            value={u.role}
+                                                            onChange={(e) => handleUpdateUserRoleStatus(u._id, { role: e.target.value })}
+                                                            className="px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-[#22262f] text-xs font-semibold outline-none border border-gray-200 dark:border-white/10"
                                                         >
-                                                            <FiCheck />
-                                                        </button>
-                                                        <button 
-                                                            onClick={() => handleUpdateStatus(b._id, 'CANCELLED')}
-                                                            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors" title="Reject"
+                                                            <option value="CUSTOMER">CUSTOMER</option>
+                                                            <option value="VENDOR">VENDOR</option>
+                                                            <option value="RECEPTIONIST">RECEPTIONIST</option>
+                                                            <option value="ADMIN">ADMIN</option>
+                                                        </select>
+                                                        <button
+                                                            onClick={() =>
+                                                                handleUpdateUserRoleStatus(u._id, {
+                                                                    status: u.status === 'ACTIVE' ? 'BANNED' : 'ACTIVE'
+                                                                })
+                                                            }
+                                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                                                                u.status === 'ACTIVE'
+                                                                    ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white'
+                                                                    : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white'
+                                                            }`}
                                                         >
-                                                            <FiX />
+                                                            {u.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
                                                         </button>
                                                     </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
+
+            {/* MODAL THÊM KHÁCH SẠN */}
+            {showHotelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#16191f] w-full max-w-lg rounded-2xl border border-gray-200 dark:border-white/10 shadow-2xl p-8 relative">
+                        <button onClick={() => setShowHotelModal(false)} className="absolute top-5 right-5 text-gray-400 hover:text-red-500 text-lg">
+                            <FiX />
+                        </button>
+                        <h3 className="text-xl font-bold mb-6">Thêm Khách Sạn Mới</h3>
+                        <form onSubmit={handleCreateHotel} className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tên khách sạn *</label>
+                                <input required value={hotelForm.name} onChange={e => setHotelForm({ ...hotelForm, name: e.target.value })} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" placeholder="VD: Sofitel Legend Metropole" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Thành phố *</label>
+                                    <input required value={hotelForm.location} onChange={e => setHotelForm({ ...hotelForm, location: e.target.value })} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" placeholder="VD: Hà Nội" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số sao (1-5)</label>
+                                    <input type="number" min="1" max="5" value={hotelForm.star_rating} onChange={e => setHotelForm({ ...hotelForm, star_rating: Number(e.target.value) })} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ảnh đại diện (URL) *</label>
+                                <input required value={hotelForm.image_url} onChange={e => setHotelForm({ ...hotelForm, image_url: e.target.value })} className="w-full px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" placeholder="https://images.unsplash.com/..." />
+                            </div>
+                            <button type="submit" className="w-full py-3 rounded-xl bg-[#C19D60] hover:bg-[#a9864c] text-white font-bold text-xs uppercase tracking-wider mt-2">
+                                Lưu Khách Sạn
+                            </button>
+                        </form>
                     </div>
                 </div>
-            </main>
+            )}
+
+            {/* MODAL QUẢN LÝ PHÒNG CỦA KHÁCH SẠN */}
+            {selectedHotel && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white dark:bg-[#16191f] w-full max-w-2xl rounded-2xl border border-gray-200 dark:border-white/10 shadow-2xl p-8 relative max-h-[90vh] overflow-y-auto">
+                        <button onClick={() => setSelectedHotel(null)} className="absolute top-5 right-5 text-gray-400 hover:text-red-500 text-lg">
+                            <FiX />
+                        </button>
+                        <p className="text-xs font-bold uppercase tracking-widest text-[#C19D60] mb-1">Quản lý Quỹ phòng</p>
+                        <h3 className="text-xl font-bold mb-6">{selectedHotel.name}</h3>
+
+                        <div className="mb-6">
+                            <h4 className="text-xs font-bold uppercase text-gray-500 mb-3">Danh sách phòng hiện có ({hotelRooms.length})</h4>
+                            {hotelRooms.length === 0 ? (
+                                <p className="text-sm text-gray-400 py-6 text-center border border-dashed border-gray-200 dark:border-white/10 rounded-xl">
+                                    Chưa có phòng nào. Hãy thêm phòng bên dưới!
+                                </p>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-56 overflow-y-auto pr-1">
+                                    {hotelRooms.map(r => (
+                                        <div key={r._id} className="p-3.5 rounded-xl bg-gray-50 dark:bg-[#22262f] border border-gray-200/70 dark:border-white/5 flex justify-between items-center">
+                                            <div>
+                                                <span className="font-bold text-sm">Phòng {r.room_number}</span>
+                                                <span className="ml-2 text-[10px] px-2 py-0.5 rounded bg-[#C19D60]/20 text-[#C19D60] font-bold">
+                                                    {r.type}
+                                                </span>
+                                            </div>
+                                            <span className="text-sm font-bold text-[#C19D60]">
+                                                {r.price_per_night.toLocaleString('vi-VN')}đ
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <form onSubmit={handleCreateRoom} className="border-t border-gray-200 dark:border-white/10 pt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Số phòng *</label>
+                                <input required value={roomForm.room_number} onChange={e => setRoomForm({ ...roomForm, room_number: e.target.value })} className="w-full px-3.5 py-2 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" placeholder="VD: 101" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Hạng phòng *</label>
+                                <select value={roomForm.type} onChange={e => setRoomForm({ ...roomForm, type: e.target.value })} className="w-full px-3.5 py-2 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none">
+                                    <option value="STANDARD">STANDARD</option>
+                                    <option value="DELUXE">DELUXE</option>
+                                    <option value="VIP">VIP</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Giá / Đêm (VNĐ) *</label>
+                                <input type="number" min="1000" step="50000" required value={roomForm.price_per_night} onChange={e => setRoomForm({ ...roomForm, price_per_night: Number(e.target.value) })} className="w-full px-3.5 py-2 rounded-xl bg-gray-100 dark:bg-[#22262f] text-sm outline-none" />
+                            </div>
+                            <div className="sm:col-span-3">
+                                <button type="submit" className="w-full py-3 rounded-xl bg-[#C19D60] hover:bg-[#a9864c] text-white font-bold text-xs uppercase tracking-wider">
+                                    + Thêm Phòng & Khởi Tạo Lịch Trống 30 Ngày
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

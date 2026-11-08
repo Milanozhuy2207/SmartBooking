@@ -23,7 +23,7 @@ interface Room {
 const AdminHotelPage = () => {
     const [hotels, setHotels] = useState<Hotel[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
 
     // Modal states
     const [showModal, setShowModal] = useState(false);
@@ -46,7 +46,7 @@ const AdminHotelPage = () => {
     const fetchHotels = async () => {
         setIsLoading(true);
         try {
-            const response = await axiosClient.get('/hotels');
+            const response = await axiosClient.get('/hotels/my-hotels');
             setHotels(response.data.data);
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Error fetching hotels');
@@ -62,8 +62,10 @@ const AdminHotelPage = () => {
     useEffect(() => {
         if (isDarkMode) {
             document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
         } else {
             document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
         }
     }, [isDarkMode]);
 

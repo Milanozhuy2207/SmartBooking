@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const hotelController = require('../controllers/hotelController');
-const { verifyToken, verifyAdmin } = require('../middlewares/authMiddleware');
+const { verifyToken, verifyAdmin, verifyVendorOrAdmin } = require('../middlewares/authMiddleware');
 
 router.get('/', hotelController.getHotels);
 router.get('/locations', hotelController.getLocations);
+router.get('/my-hotels', verifyToken, verifyVendorOrAdmin, hotelController.getMyHotels);
 router.get('/:hotelId/rooms', hotelController.getRoomsByHotel);
 
-// Admin Routes (Yêu cầu đăng nhập và có quyền ADMIN)
-router.post('/', verifyToken, verifyAdmin, hotelController.createHotel);
-router.post('/:hotelId/rooms', verifyToken, verifyAdmin, hotelController.createRoom);
+router.post('/', verifyToken, verifyVendorOrAdmin, hotelController.createHotel);
+router.post('/:hotelId/rooms', verifyToken, verifyVendorOrAdmin, hotelController.createRoom);
 
 module.exports = router;

@@ -41,6 +41,9 @@ const LoginPage = () => {
                     if (res.data.user.role === 'ADMIN') {
                         navigate('/admin')
                     }
+                    else if (res.data.user.role === 'VENDOR' || res.data.user.role === 'RECEPTIONIST') {
+                        navigate('/vendor')
+                    }
                     else {
                         navigate('/home')
                     }

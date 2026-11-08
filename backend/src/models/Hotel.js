@@ -5,7 +5,8 @@ const HotelSchema = new mongoose.Schema({
     location: { type: String, required: true },
     star_rating: { type: Number, default: 5 },
     image_url: { type: String, required: true },
-    description: { type: String }
+    description: { type: String },
+    vendor_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Hotel', HotelSchema);
