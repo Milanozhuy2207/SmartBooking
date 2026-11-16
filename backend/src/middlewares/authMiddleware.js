@@ -9,7 +9,7 @@ exports.verifyToken = async (req, res, next) => {
             return res.status(401).json({ message: 'Not authorized, please login first' })
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey123');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         if (!decoded) {
             return res.status(401).json({ message: 'Not authorized, please login first' })
@@ -38,7 +38,7 @@ exports.optionalVerifyToken = async (req, res, next) => {
         const token = req.cookies.token
 
         if (token) {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secretkey123')
+            const decoded = jwt.verify(token, process.env.JWT_SECRET)
 
             req.userId = decoded.userId
 

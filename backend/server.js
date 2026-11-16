@@ -1,4 +1,10 @@
 require('dotenv').config();
+
+// Thiếu khóa ký JWT thì từ chối khởi động, tuyệt đối không dùng khóa mặc định.
+if (!process.env.JWT_SECRET) {
+    console.error('FATAL: Thiếu biến môi trường JWT_SECRET. Hãy khai báo trong file .env hoặc trên Vercel/Render.');
+    process.exit(1);
+}
 const express = require('express');
 const mongoose = require('mongoose');
 const cookieParser = require('cookie-parser');
@@ -19,18 +25,20 @@ const app = express();
 const server = http.createServer(app);
 const holds = new Map();
 
-const corsOrigin = (origin, callback) => {
-    const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:4173',
-        process.env.FRONTEND_URL
-    ].filter(Boolean);
+// Chỉ cho phép đúng các origin được khai báo (FRONTEND_URL có thể là nhiều URL, ngăn cách bởi dấu phẩy).
+// Không dùng wildcard khi bật credentials, vì ai cũng có thể tạo subdomain *.vercel.app.
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:4173',
+    ...(process.env.FRONTEND_URL || '').split(',').map(s => s.trim().replace(/\/+$/, ''))
+].filter(Boolean);
 
-    if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
-        callback(null, true);
-    } else {
-        callback(null, true);
+const corsOrigin = (origin, callback) => {
+    // Không có origin: request cùng origin (qua proxy) hoặc công cụ như Postman/curl
+    if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
     }
+    return callback(null, false);
 };
 
 app.use(express.json());

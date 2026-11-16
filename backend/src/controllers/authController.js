@@ -3,7 +3,7 @@ const User = require('../models/User');
 const CustomerProfile = require('../models/CustomerProfile');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secretkey123';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 exports.registerCustomer = async (req, res) => {
     try {
